@@ -1,94 +1,158 @@
-# Lark Context Bot
+# Lark Context Bot - OpenCode 集成版本
 
-Feishu bot integrated with OpenCode AI programming assistant.
+Feishu bot 集成 OpenCode AI 编程助手。
 
-## Features
+## 功能特性
 
-- Each Feishu group shares one OpenCode session
-- Trigger AI responses via `@bot` mentions
-- Support Markdown formatted output
-- Automatic timeout and error handling
+- 每个 Feishu 群聊对应一个独立的 OpenCode session
+- 通过 @bot 触发 AI 响应
+- 支持获取聊天历史记录（通过自定义工具）
+- 自动会话管理
+- 实时消息更新
 
-## Usage
+## 项目结构
 
-1. Send a message in a Feishu group: `@bot help me write a quick sort function function`
-2. Bot will automatically respond with AI-generated code
-3. Direct messages to the bot are also supported
+```
+lark-context/
+├── data/                          # 数据目录（不提交到 git）
+│   ├── context/                   # OpenCode 工作目录
+│   │   ├── .opencode/
+│   │   │   ├── tools/
+│   │   │   │   └── feishu.ts  # 自定义工具：获取 Feishu 聊天历史
+│   │   │   └── opencode.jsonc # OpenCode 配置
+│   │   └── ...                  # OpenCode 生成的其他文件
+│   └── sessions.json             # chat-session 映射
+├── src/
+│   ├── opencode/
+│   │   ├── service.ts           # OpenCode 服务封装
+│   │   └── session-manager.ts   # Session 管理
+│   └── ...
+```
 
-## Feishu App Configuration
+## 环境变量配置
 
-### Permissions
-
-Configure the following permissions in the Feishu Open Platform:
-
-- `im:message` - Receive messages
-- `im:message:group_at_msg` - Group @ messages
-- `im:message:send_as_bot` - Send messages
-
-### Event Subscription
-
-Subscribe to the following events:
-
-- `im.message.receive_v1` - Receive message events
-
-## Tech Stack
-
-- Node.js 24+
-- TypeScript
-- pnpm
-- @opencode-ai/sdk
-- @larksuiteoapi/node-sdk
-
-## Installation
+复制 `.env.example` 到 `.env` 并填写配置：
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Copy environment variable template
 cp .env.example .env
-
-# Edit .env file and fill in Feishu app configuration
 ```
 
-## Configuration
+编辑 `.env` 文件：
 
-Configure the following variables in `.env` file:
-
-```
+```env
+# Feishu App 配置
 LARK_APP_ID=your_app_id
 LARK_APP_SECRET=your_app_secret
+
+# Webhook 模式（可选）
 LARK_VERIFICATION_TOKEN=your_verification_token
 LARK_ENCRYPT_KEY=your_encrypt_key
-PORT=3000
+
+# OpenCode 配置
+OPENCODE_HOST=http://localhost:4242
+OPENCODE_TIMEOUT=60000
+
+# 数据路径
+DATA_PATH=./data
 ```
 
-## Running
+## 本地开发
+
+### 1. 安装依赖
 
 ```bash
-# Development mode
+pnpm install
+```
+
+### 2. 启动 OpenCode Server
+
+在 `data/context` 目录下启动 OpenCode server：
+
+```bash
+cd data/context
+opencode serve --hostname 0.0.0.0 --port 4242
+```
+
+### 3. 启动 Bot
+
+在另一个终端窗口中：
+
+```bash
 pnpm dev
-
-# Production mode
-pnpm build
-pnpm start
 ```
 
-## Docker Deployment
+## Docker 部署
+
+### 构建镜像
 
 ```bash
-# Build image
 docker build -t lark-context .
-
-# Run container
-docker run -d -p 3000:3000 --env-file .env lark-context
 ```
 
-## References
+### 运行容器
 
-- [Feishu Node SDK](https://github.com/larksuite/node-sdk)
-- [OpenCode SDK Documentation](https://opencode.ai/docs/sdk)
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -p 4242:4242\
+  --env-file .env \
+  -v $(pwd)/data:/app/data \
+  lark-context
+```
 
-## License
+## 使用方法
+
+在 Feishu 群聊或私聊中 @bot 并发送消息：
+
+```
+@bot 帮我写一个快速排序函数
+```
+
+Bot 会：
+1. 为该聊天创建或获取 OpenCode session
+2. 发送消息到 OpenCode
+3. 先显示"正在处理..."
+4. 完成后更新消息为 AI 响应
+
+## OpenCode 自定义工具
+
+项目包含一个自定义工具 `feishu.ts`，允许 OpenCode 访问 Feishu 聊天历史：
+
+```typescript
+// data/context/.opencode/tools/feishu.ts
+export default tool({
+  description: "Get recent messages from Feishu chat",
+  args: {
+    count: tool.schema.number().default(30).describe("Number of recent messages to retrieve"),
+  },
+  async execute(args, context) {
+    // 通过 context 获取 sessionID，映射到 chatId
+    // 调用 Feishu API 获取聊天历史
+    // 返回格式化的消息列表
+  },
+});
+```
+
+## 开发
+
+### 构建
+
+```bash
+pnpm build
+```
+
+### Lint
+
+```bash
+pnpm lint
+```
+
+### 类型检查
+
+```bash
+pnpm typecheck
+```
+
+## 许可证
 
 Apache-2.0

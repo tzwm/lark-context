@@ -1,4 +1,6 @@
 import * as lark from '@larksuiteoapi/node-sdk';
+import type { OpenCodeService } from '../opencode/service.js';
+import type { SessionManager } from '../opencode/session-manager.js';
 import type { MessageEvent } from '../types/index.js';
 import { BotHandler } from './handler.js';
 
@@ -13,8 +15,15 @@ export class Bot {
     encryptKey?: string;
     verificationToken?: string;
     mode?: 'webhook' | 'long-connection';
+    openCodeService: OpenCodeService;
+    sessionManager: SessionManager;
   }) {
-    this.handler = new BotHandler(config.appId, config.appSecret);
+    this.handler = new BotHandler(
+      config.appId,
+      config.appSecret,
+      config.openCodeService,
+      config.sessionManager,
+    );
 
     const isWebhookMode = config.mode === 'webhook';
     this.eventDispatcher = new lark.EventDispatcher({

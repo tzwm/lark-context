@@ -11,12 +11,21 @@ importers:
       '@larksuiteoapi/node-sdk':
         specifier: ^1.24.0
         version: 1.56.1
+      '@opencode-ai/plugin':
+        specifier: ^1.1.36
+        version: 1.1.36
+      '@opencode-ai/sdk':
+        specifier: ^1.1.36
+        version: 1.1.36
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
       express:
         specifier: ^4.21.2
         version: 4.22.1
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.4
@@ -247,6 +256,12 @@ packages:
 
   '@larksuiteoapi/node-sdk@1.56.1':
     resolution: {integrity: sha512-/ixtyJnWOmcupKgDXz+6G6qTLMi3cNrR+LGOuq2PMwcJ6hhXTUJNyAF+ADY7ah9OoeDniGU/UJwMb2gqKdxwcA==}
+
+  '@opencode-ai/plugin@1.1.36':
+    resolution: {integrity: sha512-b2XWeFZN7UzgwkkzTIi6qSntkpEA9En2zvpqakQzZAGQm6QBdGAlv6r1u5hEnmF12Gzyj5umTMWr5GzVbP/oAA==}
+
+  '@opencode-ai/sdk@1.1.36':
+    resolution: {integrity: sha512-feNHWnbxhg03TI2QrWnw3Chc0eYrWSDSmHIy/ejpSVfcKlfXREw1Tpg0L4EjrpeSc4jB1eM673dh+WM/Ko2SFQ==}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -668,6 +683,12 @@ packages:
       utf-8-validate:
         optional: true
 
+  zod@4.1.8:
+    resolution: {integrity: sha512-5R1P+WwQqmmMIEACyzSvo4JXHY5WiAFHRMg+zBZKgKS+Q1viRa0C1hmUKtHltoIFKtIdki3pRxkmpP74jnNYHQ==}
+
+  zod@4.3.6:
+    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+
 snapshots:
 
   '@biomejs/biome@1.9.4':
@@ -796,6 +817,13 @@ snapshots:
       - bufferutil
       - debug
       - utf-8-validate
+
+  '@opencode-ai/plugin@1.1.36':
+    dependencies:
+      '@opencode-ai/sdk': 1.1.36
+      zod: 4.1.8
+
+  '@opencode-ai/sdk@1.1.36': {}
 
   '@protobufjs/aspromise@1.1.2': {}
 
@@ -1270,3 +1298,7 @@ snapshots:
   vary@1.1.2: {}
 
   ws@8.19.0: {}
+
+  zod@4.1.8: {}
+
+  zod@4.3.6: {}

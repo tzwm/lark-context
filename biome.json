@@ -50,7 +50,7 @@
       },
       "suspicious": {
         "recommended": true,
-        "noExplicitAny": "warn"
+        "noExplicitAny": "off"
       },
       "performance": {
         "recommended": true
