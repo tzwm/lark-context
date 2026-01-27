@@ -14,8 +14,15 @@ export class OpenCodeService {
   private client: ReturnType<typeof createOpencodeClient>;
 
   constructor(config: OpenCodeConfig) {
+    const username = config.username || 'opencode';
+    const auth = config.password ? `${username}:${config.password}` : undefined;
+    
     this.client = createOpencodeClient({
       baseUrl: config.host,
+      ...(auth ? {
+        auth: auth,
+        security: [{ type: "http", scheme: "basic" }]
+      } : {})
     });
   }
 
@@ -89,8 +96,15 @@ export class OpenCodeService {
         },
       });
 
+      console.log('[OpenCode] Prompt result:', JSON.stringify(result, null, 2));
+
       if (!result.data) {
         throw new Error('No response from OpenCode');
+      }
+
+      if (!result.data.parts && !result.data.info) {
+        console.error('[OpenCode] Invalid response structure:', result.data);
+        throw new Error('OpenCode returned empty or invalid response. Check server configuration.');
       }
 
       return result.data;
@@ -147,6 +161,10 @@ export class OpenCodeService {
   }): string {
     let output = '';
 
+    if (!response.parts || !Array.isArray(response.parts)) {
+      return 'No response content available';
+    }
+
     for (const part of response.parts) {
       if (part.type === 'text') {
         output += `${part.text}\n`;
@@ -165,9 +183,11 @@ export class OpenCodeService {
       }
     }
 
-    output += '\n---\n';
-    output += `Tokens: ${response.info.tokens.input} in, ${response.info.tokens.output} out\n`;
-    output += `Cost: $${response.info.cost.toFixed(4)}\n`;
+    if (response.info?.tokens) {
+      output += '\n---\n';
+      output += `Tokens: ${response.info.tokens.input} in, ${response.info.tokens.output} out\n`;
+      output += `Cost: $${response.info.cost.toFixed(4)}\n`;
+    }
 
     return output;
   }
