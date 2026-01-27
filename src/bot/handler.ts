@@ -127,7 +127,20 @@ export class BotHandler {
   private async editMessage(chatId: string, messageId: string, text: string): Promise<void> {
     console.log('[BotHandler] editMessage called:', { chatId, messageId, text });
     try {
-      await (this.client as any).im.v1.message.update({
+      await (
+        this.client as unknown as {
+          im: {
+            v1: {
+              message: {
+                update: (args: {
+                  path: { message_id: string };
+                  data: { content: string; msg_type: string };
+                }) => Promise<void>;
+              };
+            };
+          };
+        }
+      ).im.v1.message.update({
         path: {
           message_id: messageId,
         },

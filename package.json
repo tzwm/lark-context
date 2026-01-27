@@ -11,7 +11,8 @@
     "lint": "biome check src",
     "lint:fix": "biome check --write src",
     "typecheck": "tsc --noEmit",
-    "check-env": "tsx src/check-env.ts"
+    "check-env": "tsx src/check-env.ts",
+    "pre-commit": "pnpm typecheck && pnpm lint:fix"
   },
   "keywords": [
     "feishu",

@@ -33,24 +33,19 @@
         "recommended": true
       },
       "complexity": {
-        "recommended": true,
-        "noStaticOnlyClass": "off"
+        "recommended": true
       },
       "correctness": {
-        "recommended": true,
-        "noUnusedVariables": "warn"
+        "recommended": true
       },
       "security": {
         "recommended": true
       },
       "style": {
-        "recommended": true,
-        "noNonNullAssertion": "warn",
-        "useImportType": "error"
+        "recommended": true
       },
       "suspicious": {
-        "recommended": true,
-        "noExplicitAny": "off"
+        "recommended": true
       },
       "performance": {
         "recommended": true
