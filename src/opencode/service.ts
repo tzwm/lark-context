@@ -16,13 +16,15 @@ export class OpenCodeService {
   constructor(config: OpenCodeConfig) {
     const username = config.username || 'opencode';
     const auth = config.password ? `${username}:${config.password}` : undefined;
-    
+
     this.client = createOpencodeClient({
       baseUrl: config.host,
-      ...(auth ? {
-        auth: auth,
-        security: [{ type: "http", scheme: "basic" }]
-      } : {})
+      ...(auth
+        ? {
+            auth: auth,
+            security: [{ type: 'http', scheme: 'basic' }],
+          }
+        : {}),
     });
   }
 
