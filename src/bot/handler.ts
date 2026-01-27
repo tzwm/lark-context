@@ -15,25 +15,33 @@ export class BotHandler {
   }
 
   async handleMessage(event: MessageEvent): Promise<void> {
+    console.log('[DEBUG] handleMessage called');
     const { chat_id, content, msg_type } = event.event.message;
+    console.log('[DEBUG] Message details:', { chat_id, msg_type, content });
 
     if (msg_type !== 'text') {
+      console.log('[DEBUG] Message is not text type, skipping');
       return;
     }
 
     const messageContent = parseMessageContent(content);
+    console.log('[DEBUG] Parsed message content:', messageContent);
 
     if (!isBotMentioned(messageContent.text)) {
+      console.log('[DEBUG] Bot not mentioned, skipping');
       return;
     }
 
     const query = extractBotMention(messageContent.text);
+    console.log('[DEBUG] Extracted query:', query);
 
     if (!query) {
+      console.log('[DEBUG] Query is empty, sending help message');
       await this.sendMessage(chat_id, '请告诉我您需要什么帮助？');
       return;
     }
 
+    console.log('[DEBUG] Sending response for query:', query);
     await this.sendMessage(
       chat_id,
       `收到您的消息: ${query}\n\n目前仅测试模式，OpenCode 集成即将上线。`,
@@ -41,8 +49,9 @@ export class BotHandler {
   }
 
   private async sendMessage(chatId: string, text: string): Promise<void> {
+    console.log('[DEBUG] sendMessage called:', { chatId, text });
     try {
-      await this.client.im.message.create({
+      const result = await this.client.im.message.create({
         params: {
           receive_id_type: 'chat_id',
         },
@@ -52,8 +61,9 @@ export class BotHandler {
           msg_type: 'text',
         },
       });
+      console.log('[DEBUG] Message sent successfully:', result);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('[DEBUG] Failed to send message:', error);
       throw error;
     }
   }

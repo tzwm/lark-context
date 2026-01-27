@@ -21,6 +21,7 @@ export class Bot {
       encryptKey: isWebhookMode ? config.encryptKey : undefined,
     }).register({
       'im.message.receive_v1': async data => {
+        console.log('[DEBUG] Received event:', JSON.stringify(data, null, 2));
         await this.handler.handleMessage(data as unknown as MessageEvent);
       },
     });
