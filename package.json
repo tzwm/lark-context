@@ -1,0 +1,39 @@
+{
+  "name": "lark-context",
+  "version": "1.0.0",
+  "description": "Feishu bot with OpenCode AI integration",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "check-env": "tsx src/check-env.ts"
+  },
+  "keywords": [
+    "feishu",
+    "lark",
+    "bot",
+    "opencode",
+    "ai"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.24.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.18.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
