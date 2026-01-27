@@ -84,6 +84,11 @@ docker build -t lark-context .
 docker run -d -p 3000:3000 --env-file .env lark-context
 ```
 
+## References
+
+- [Feishu Node SDK](https://github.com/larksuite/node-sdk)
+- [OpenCode SDK Documentation](https://opencode.ai/docs/sdk)
+
 ## License
 
 Apache-2.0
