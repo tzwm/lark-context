@@ -12,7 +12,6 @@
     "lint:fix": "biome check --write src opencode",
     "typecheck": "tsc --noEmit",
     "check-env": "tsx src/check-env.ts",
-    "test:opencode": "tsx scripts/test-opencode.ts",
     "pre-commit": "pnpm typecheck && pnpm lint"
   },
   "keywords": ["feishu", "lark", "bot", "opencode", "ai"],
