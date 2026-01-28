@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { OpenCodeService } from '../opencode/service.js';
 import type { SessionManager } from '../opencode/session-manager.js';
 import type { MessageEvent } from '../types/index.js';
 import { extractBotMention, isBotMentioned, parseMessageContent } from './utils.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export class BotHandler {
   private client: lark.Client;
@@ -108,21 +115,45 @@ export class BotHandler {
 
     console.log('[BotHandler] Using session:', sessionId);
 
-    const loadingMessageId = await this.sendMessage(chatId, '🤔 正在处理您的请求...');
+    const loadingCard = {
+      config: {
+        wide_screen_mode: true,
+      },
+      elements: [
+        {
+          tag: 'div',
+          text: {
+            tag: 'lark_md',
+            content: '正在处理您的请求，请稍候...',
+          },
+        },
+      ],
+    };
+
+    const cardMessageId = await this.sendCard(chatId, loadingCard);
 
     try {
       const response = await this.openCodeService.sendPrompt(sessionId, query);
-      const formattedResponse = this.openCodeService.formatResponse(response);
 
-      await this.editMessage(chatId, loadingMessageId, formattedResponse);
+      await this.updateCardStreaming(chatId, cardMessageId, response);
       console.log('[BotHandler] Response sent successfully');
     } catch (error) {
       console.error('[BotHandler] OpenCode error:', error);
-      await this.editMessage(
-        chatId,
-        loadingMessageId,
-        `❌ 处理请求时出错：${error instanceof Error ? error.message : String(error)}`,
-      );
+      const errorCard = {
+        config: {
+          wide_screen_mode: true,
+        },
+        elements: [
+          {
+            tag: 'div',
+            text: {
+              tag: 'lark_md',
+              content: `❌ 处理请求时出错：${error instanceof Error ? error.message : String(error)}`,
+            },
+          },
+        ],
+      };
+      await this.updateCard(chatId, cardMessageId, errorCard);
       throw error;
     }
   }
@@ -149,6 +180,139 @@ export class BotHandler {
     }
   }
 
+  private async sendCard(chatId: string, card: Record<string, unknown>): Promise<string> {
+    console.log('[BotHandler] sendCard called:', { chatId });
+    try {
+      const result = await this.client.im.message.create({
+        params: {
+          receive_id_type: 'chat_id',
+        },
+        data: {
+          receive_id: chatId,
+          content: JSON.stringify(card),
+          msg_type: 'interactive',
+        },
+      });
+      console.log('[BotHandler] Card sent successfully:', result);
+      return result.data?.message_id || '';
+    } catch (error) {
+      console.error('[BotHandler] Failed to send card:', error);
+      throw error;
+    }
+  }
+
+  private async updateCard(
+    chatId: string,
+    messageId: string,
+    card: Record<string, unknown>,
+  ): Promise<void> {
+    console.log('[BotHandler] updateCard called:', { chatId, messageId });
+    try {
+      await (
+        this.client as unknown as {
+          im: {
+            v1: {
+              message: {
+                patch: (args: {
+                  path: { message_id: string };
+                  data: { content: string; msg_type: string };
+                }) => Promise<void>;
+              };
+            };
+          };
+        }
+      ).im.v1.message.patch({
+        path: {
+          message_id: messageId,
+        },
+        data: {
+          content: JSON.stringify(card),
+          msg_type: 'interactive',
+        },
+      });
+      console.log('[BotHandler] Card updated successfully');
+    } catch (error) {
+      console.error('[BotHandler] Failed to update card:', error);
+      throw error;
+    }
+  }
+
+  private async updateCardStreaming(
+    chatId: string,
+    messageId: string,
+    response: {
+      info: { tokens?: { input: number; output: number }; cost?: number };
+      parts: Array<{
+        type: string;
+        text?: string;
+        tool?: string;
+        state?: { status?: string; output?: string; error?: string };
+        filename?: string;
+        url?: string;
+      }>;
+    },
+  ): Promise<void> {
+    console.log('[BotHandler] updateCardStreaming called:', { chatId, messageId });
+
+    const templatePath = join(__dirname, 'message-template.json');
+    const template = JSON.parse(readFileSync(templatePath, 'utf-8')) as Record<string, unknown>;
+
+    let thinking = '';
+    let body = '';
+    let info = '';
+
+    for (const part of response.parts) {
+      if (part.type === 'text' && part.text) {
+        body += `${part.text}\n\n`;
+      } else if (part.type === 'tool') {
+        body += `🔧 **Tool**: ${part.tool}\n`;
+        body += `Status: ${part.state?.status}\n`;
+        if (part.state?.status === 'completed' && part.state?.output) {
+          body += `${part.state.output}\n\n`;
+        } else if (part.state?.status === 'error' && part.state?.error) {
+          body += `Error: ${part.state.error}\n\n`;
+        }
+      } else if (part.type === 'file') {
+        body += `📄 File: ${part.filename || part.url}\n\n`;
+      } else if (part.type === 'reasoning' && part.text) {
+        thinking += `${part.text}\n\n`;
+      }
+    }
+
+    if (response.info?.tokens) {
+      info = `input: ${response.info.tokens.input}, output: ${response.info.tokens.output}`;
+    }
+
+    const replaceVariables = (obj: unknown, variables: Record<string, string>): unknown => {
+      if (typeof obj === 'string') {
+        let result = obj;
+        for (const [key, value] of Object.entries(variables)) {
+          result = result.replace(`\${${key}}`, value);
+        }
+        return result;
+      }
+      if (Array.isArray(obj)) {
+        return obj.map(item => replaceVariables(item, variables));
+      }
+      if (typeof obj === 'object' && obj !== null) {
+        const result: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+          result[key] = replaceVariables(value, variables);
+        }
+        return result;
+      }
+      return obj;
+    };
+
+    const card = replaceVariables(template, {
+      thinking: thinking.trim(),
+      body: body.trim(),
+      info,
+    });
+
+    await this.updateCard(chatId, messageId, card as Record<string, unknown>);
+  }
+
   private createPostContent(text: string): Record<string, unknown> {
     return {
       post: {
@@ -165,38 +329,5 @@ export class BotHandler {
         },
       },
     };
-  }
-
-  private async editMessage(chatId: string, messageId: string, content: string): Promise<void> {
-    console.log('[BotHandler] editMessage called:', { chatId, messageId, content });
-    try {
-      const contentObj = JSON.parse(content);
-      await (
-        this.client as unknown as {
-          im: {
-            v1: {
-              message: {
-                update: (args: {
-                  path: { message_id: string };
-                  data: { content: string; msg_type: string };
-                }) => Promise<void>;
-              };
-            };
-          };
-        }
-      ).im.v1.message.update({
-        path: {
-          message_id: messageId,
-        },
-        data: {
-          content: JSON.stringify(contentObj),
-          msg_type: 'post',
-        },
-      });
-      console.log('[BotHandler] Message edited successfully');
-    } catch (error) {
-      console.error('[BotHandler] Failed to edit message:', error);
-      throw error;
-    }
   }
 }
