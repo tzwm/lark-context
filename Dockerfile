@@ -14,8 +14,11 @@ COPY . .
 
 RUN pnpm build
 
-# 创建数据目录
-RUN mkdir -p /app/data/context
+# 创建数据目录和 OpenCode 配置目录
+RUN mkdir -p /app/data/context /root/.config/opencode
+
+# 复制 OpenCode 工具到配置目录
+COPY opencode /root/.config/opencode
 
 # 暴露端口
 EXPOSE 3000 4242
