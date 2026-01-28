@@ -20,7 +20,7 @@ for (const envVar of requiredEnvVars) {
 
 const DATA_PATH = process.env.DATA_PATH as string;
 const OPENCODE_HOST = process.env.OPENCODE_HOST as string;
-const OPENCODE_TIMEOUT = Number.parseInt(process.env.OPENCODECODE_TIMEOUT || '60000', 10000);
+const OPENCODE_TIMEOUT = Number.parseInt(process.env.OPENCODE_TIMEOUT || '60000', 10);
 const OPENCODE_USERNAME = process.env.OPENCODE_SERVER_USERNAME;
 const OPENCODE_PASSWORD = process.env.OPENCODE_SERVER_PASSWORD;
 

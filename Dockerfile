@@ -47,8 +47,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
 RUN curl -fsSL https://bun.sh/install | bash \
     && npm install -g pnpm
 
-RUN git config --global user.name "context" \
-    && git config --global user.email "context@talesof.ai" \
+RUN git config --global user.name "lark-context" \
+    && git config --global user.email "lark-context@localhost" \
     && git config --global init.defaultBranch main
 
 RUN curl -fsSL https://opencode.ai/install | bash
