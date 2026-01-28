@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as lark from '@larksuiteoapi/node-sdk';
+import type { AssistantMessage, Part } from '@opencode-ai/sdk';
 import type { OpenCodeService } from '../opencode/service.js';
 import type { SessionManager } from '../opencode/session-manager.js';
 import type { MessageEvent } from '../types/index.js';
@@ -233,19 +234,8 @@ export class BotHandler {
     chatId: string,
     messageId: string,
     response: {
-      info: {
-        tokens?: { input: number; output: number };
-        cost?: number;
-        duration?: number;
-      };
-      parts: Array<{
-        type: string;
-        text?: string;
-        tool?: string;
-        state?: { status?: string; output?: string; error?: string };
-        filename?: string;
-        url?: string;
-      }>;
+      info: AssistantMessage;
+      parts: Part[];
     },
   ): Promise<void> {
     console.log('[BotHandler] updateCardStreaming called:', { chatId, messageId });
@@ -277,8 +267,9 @@ export class BotHandler {
 
     if (response.info?.tokens) {
       info = `input: ${response.info.tokens.input}, output: ${response.info.tokens.output}`;
-      if (response.info.duration) {
-        info += `, duration: ${(response.info.duration / 1000).toFixed(2)}s`;
+      if (response.info.time?.completed) {
+        const duration = response.info.time.completed - response.info.time.created;
+        info += `, duration: ${(duration / 1000).toFixed(2)}s`;
       }
     }
 
