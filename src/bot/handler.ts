@@ -66,15 +66,18 @@ export class BotHandler {
     const messageContent = parseMessageContent(content);
     console.log('[BotHandler] Parsed message content:', messageContent);
 
-    if (!isBotMentioned(messageContent.text)) {
-      console.log('[BotHandler] Bot not mentioned, skipping');
+    const isPrivateChat = event.message.chat_type === 'p2p';
+    console.log('[BotHandler] Is private chat:', isPrivateChat);
+
+    if (!isPrivateChat && !isBotMentioned(messageContent.text)) {
+      console.log('[BotHandler] Bot not mentioned in group chat, skipping');
       return;
     }
 
-    const query = extractBotMention(messageContent.text);
+    const query = isPrivateChat ? messageContent.text : extractBotMention(messageContent.text);
     console.log('[BotHandler] Extracted query:', query);
 
-    if (!query) {
+    if (!query || query.trim() === '') {
       console.log('[BotHandler] Query is empty, sending help message');
       await this.sendMessage(chat_id, '请告诉我您需要什么帮助？');
       return;
