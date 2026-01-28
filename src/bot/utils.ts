@@ -27,7 +27,3 @@ export function extractBotMention(text: string): string | null {
 export function isBotMentioned(text: string): boolean {
   return /@_user_\d+/.test(text);
 }
-
-export function formatMarkdown(text: string): string {
-  return text;
-}

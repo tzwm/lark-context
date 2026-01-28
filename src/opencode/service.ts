@@ -3,11 +3,6 @@ import { createOpencodeClient } from '@opencode-ai/sdk';
 import type { OpenCodeConfig } from '../types/index.js';
 
 const SYSTEM_PROMPT = `You are an AI assistant integrated with Feishu/Lark.
-You can access chat history using the 'feishu' tool to get context.
-
-When users ask about recent messages, use the feishu tool to retrieve them.
-Always include sender information when referencing messages.
-
 You are working in a collaborative environment. Be helpful, concise, and provide clear answers.`;
 
 export class OpenCodeService {
