@@ -1,4 +1,4 @@
-import type { AssistantMessage, Message, Part } from '@opencode-ai/sdk';
+import type { AssistantMessage, Part } from '@opencode-ai/sdk';
 import { createOpencodeClient } from '@opencode-ai/sdk';
 import type { OpenCodeConfig } from '../types/index.js';
 
@@ -107,47 +107,6 @@ export class OpenCodeService {
       return result.data;
     } catch (error) {
       console.error('[OpenCode] Failed to send prompt:', error);
-      throw error;
-    }
-  }
-
-  async getSessionMessages(sessionId: string): Promise<
-    {
-      info: Message;
-      parts: Part[];
-    }[]
-  > {
-    try {
-      const result = await this.client.session.messages({
-        path: { id: sessionId },
-      });
-
-      if (!result.data) {
-        return [];
-      }
-
-      return result.data;
-    } catch (error) {
-      console.error('[OpenCode] Failed to get session messages:', error);
-      throw error;
-    }
-  }
-
-  async deleteSession(sessionId: string): Promise<boolean> {
-    try {
-      console.log('[OpenCode] Deleting session:', sessionId);
-
-      const result = await this.client.session.delete({
-        path: { id: sessionId },
-      });
-
-      if (!result.data) {
-        return false;
-      }
-
-      return result.data;
-    } catch (error) {
-      console.error('[OpenCode] Failed to delete session:', error);
       throw error;
     }
   }
