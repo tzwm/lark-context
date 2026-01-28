@@ -125,22 +125,7 @@ export class BotHandler {
 
     console.log('[BotHandler] Using session:', sessionId);
 
-    const loadingCard = {
-      config: {
-        wide_screen_mode: true,
-      },
-      elements: [
-        {
-          tag: 'div',
-          text: {
-            tag: 'lark_md',
-            content: '正在处理您的请求，请稍候...',
-          },
-        },
-      ],
-    };
-
-    const cardMessageId = await this.sendCard(chatId, loadingCard);
+    const cardMessageId = await this.sendTextMessage(chatId, '正在处理您的请求，请稍候...');
 
     try {
       const response = await this.openCodeService.sendPrompt(sessionId, query);
@@ -169,25 +154,22 @@ export class BotHandler {
   }
 
   async sendTextMessage(chatId: string, text: string): Promise<string> {
-    console.log('[BotHandler] sendMessage called:', { chatId, text });
-    const content = this.createPostContent(text);
-    try {
-      const result = await this.client.im.message.create({
-        params: {
-          receive_id_type: 'chat_id',
+    console.log('[BotHandler] sendTextMessage called:', { chatId, text });
+    const card = {
+      config: {
+        wide_screen_mode: true,
+      },
+      elements: [
+        {
+          tag: 'div',
+          text: {
+            tag: 'lark_md',
+            content: text,
+          },
         },
-        data: {
-          receive_id: chatId,
-          content: JSON.stringify(content),
-          msg_type: 'post',
-        },
-      });
-      console.log('[BotHandler] Message sent successfully:', result);
-      return result.data?.message_id || '';
-    } catch (error) {
-      console.error('[BotHandler] Failed to send message:', error);
-      throw error;
-    }
+      ],
+    };
+    return this.sendCard(chatId, card);
   }
 
   private async sendCard(chatId: string, card: Record<string, unknown>): Promise<string> {
@@ -329,23 +311,5 @@ export class BotHandler {
     await this.sessionManager.updateSessionId(chatId, newSessionId);
     console.log('[BotHandler] New session created:', newSessionId);
     return newSessionId;
-  }
-
-  private createPostContent(text: string): Record<string, unknown> {
-    return {
-      post: {
-        zh_cn: {
-          title: '',
-          content: [
-            [
-              {
-                tag: 'text',
-                text,
-              },
-            ],
-          ],
-        },
-      },
-    };
   }
 }
