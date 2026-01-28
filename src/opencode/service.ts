@@ -161,7 +161,7 @@ export class OpenCodeService {
     info: AssistantMessage;
     parts: Part[];
   }): string {
-    let output = '';
+    const blocks: Array<Array<{ tag: string; text?: string; style?: string }>> = [];
 
     if (!response.parts || !Array.isArray(response.parts)) {
       return 'No response content available';
@@ -169,28 +169,148 @@ export class OpenCodeService {
 
     for (const part of response.parts) {
       if (part.type === 'text') {
-        output += `${part.text}\n`;
+        const lines = part.text.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('```')) {
+            blocks.push([
+              {
+                tag: 'text',
+                text: line,
+                style: 'code',
+              },
+            ]);
+          } else if (line.startsWith('# ')) {
+            blocks.push([
+              {
+                tag: 'text',
+                text: line.substring(2),
+                style: 'heading',
+              },
+            ]);
+          } else if (line.startsWith('## ')) {
+            blocks.push([
+              {
+                tag: 'text',
+                text: line.substring(3),
+                style: 'subheading',
+              },
+            ]);
+          } else if (line.startsWith('### ')) {
+            blocks.push([
+              {
+                tag: 'text',
+                text: line.substring(4),
+                style: 'subsubheading',
+              },
+            ]);
+          } else if (line.startsWith('- ')) {
+            blocks.push([
+              {
+                tag: 'text',
+                text: `• ${line.substring(2)}`,
+              },
+            ]);
+          } else if (line.match(/^\d+\. /)) {
+            blocks.push([
+              {
+                tag: 'text',
+                text: line,
+              },
+            ]);
+          } else if (line.startsWith('> ')) {
+            blocks.push([
+              {
+                tag: 'text',
+                text: line.substring(2),
+                style: 'quote',
+              },
+            ]);
+          } else if (line.trim() === '') {
+            blocks.push([]);
+          } else {
+            blocks.push([
+              {
+                tag: 'text',
+                text: line,
+              },
+            ]);
+          }
+        }
       } else if (part.type === 'tool') {
-        output += `🔧 Tool: ${part.tool}\n`;
-        output += `Status: ${part.state.status}\n`;
+        blocks.push([
+          {
+            tag: 'text',
+            text: `🔧 **Tool**: ${part.tool}`,
+          },
+        ]);
+        blocks.push([
+          {
+            tag: 'text',
+            text: `Status: ${part.state.status}`,
+          },
+        ]);
         if (part.state.status === 'completed') {
-          output += `${part.state.output}\n`;
+          blocks.push([
+            {
+              tag: 'text',
+              text: part.state.output,
+            },
+          ]);
         } else if (part.state.status === 'error') {
-          output += `Error: ${part.state.error}\n`;
+          blocks.push([
+            {
+              tag: 'text',
+              text: `Error: ${part.state.error}`,
+              style: 'quote',
+            },
+          ]);
         }
       } else if (part.type === 'file') {
-        output += `📄 File: ${part.filename || part.url}\n`;
+        blocks.push([
+          {
+            tag: 'text',
+            text: `📄 File: ${part.filename || part.url}`,
+          },
+        ]);
       } else if (part.type === 'reasoning') {
-        output += `🤔 Reasoning: ${part.text}\n`;
+        blocks.push([
+          {
+            tag: 'text',
+            text: `🤔 *Reasoning*: ${part.text}`,
+          },
+        ]);
       }
     }
 
     if (response.info?.tokens) {
-      output += '\n---\n';
-      output += `Tokens: ${response.info.tokens.input} in, ${response.info.tokens.output} out\n`;
-      output += `Cost: $${response.info.cost.toFixed(4)}\n`;
+      blocks.push([]);
+      blocks.push([
+        {
+          tag: 'text',
+          text: '---',
+        },
+      ]);
+      blocks.push([
+        {
+          tag: 'text',
+          text: `Tokens: ${response.info.tokens.input} in, ${response.info.tokens.output} out`,
+        },
+      ]);
+      blocks.push([
+        {
+          tag: 'text',
+          text: `Cost: $${response.info.cost.toFixed(4)}`,
+        },
+      ]);
     }
 
-    return output;
+    return JSON.stringify({
+      post: {
+        zh_cn: {
+          title: '',
+          content: blocks,
+        },
+      },
+    });
   }
 }

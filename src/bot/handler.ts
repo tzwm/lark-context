@@ -129,6 +129,7 @@ export class BotHandler {
 
   private async sendMessage(chatId: string, text: string): Promise<string> {
     console.log('[BotHandler] sendMessage called:', { chatId, text });
+    const content = this.createPostContent(text);
     try {
       const result = await this.client.im.message.create({
         params: {
@@ -136,8 +137,8 @@ export class BotHandler {
         },
         data: {
           receive_id: chatId,
-          content: JSON.stringify({ text }),
-          msg_type: 'text',
+          content,
+          msg_type: 'post',
         },
       });
       console.log('[BotHandler] Message sent successfully:', result);
@@ -148,8 +149,26 @@ export class BotHandler {
     }
   }
 
-  private async editMessage(chatId: string, messageId: string, text: string): Promise<void> {
-    console.log('[BotHandler] editMessage called:', { chatId, messageId, text });
+  private createPostContent(text: string): string {
+    return JSON.stringify({
+      post: {
+        zh_cn: {
+          title: '',
+          content: [
+            [
+              {
+                tag: 'text',
+                text,
+              },
+            ],
+          ],
+        },
+      },
+    });
+  }
+
+  private async editMessage(chatId: string, messageId: string, content: string): Promise<void> {
+    console.log('[BotHandler] editMessage called:', { chatId, messageId, content });
     try {
       await (
         this.client as unknown as {
@@ -169,8 +188,8 @@ export class BotHandler {
           message_id: messageId,
         },
         data: {
-          content: JSON.stringify({ text }),
-          msg_type: 'text',
+          content,
+          msg_type: 'post',
         },
       });
       console.log('[BotHandler] Message edited successfully');
