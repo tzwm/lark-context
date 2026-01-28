@@ -49,7 +49,7 @@ LARK_VERIFICATION_TOKEN=your_verification_token
 LARK_ENCRYPT_KEY=your_encrypt_key
 
 # OpenCode 配置
-OPENCODE_HOST=http://localhost:4242
+OPENCODE_HOST=http://localhost:4096
 OPENCODE_TIMEOUT=60000
 
 # 数据路径
@@ -70,7 +70,7 @@ pnpm install
 
 ```bash
 cd data/context
-opencode serve --hostname 0.0.0.0 --port 4242
+opencode serve --hostname 0.0.0.0 --port 4096
 ```
 
 ### 3. 启动 Bot
@@ -94,7 +94,7 @@ docker build -t lark-context .
 ```bash
 docker run -d \
   -p 3000:3000 \
-  -p 4242:4242\
+  -p 4096:4096 \
   --env-file .env \
   -v $(pwd)/data:/app/data \
   lark-context
