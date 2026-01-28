@@ -3,7 +3,7 @@ import { tool } from '@opencode-ai/plugin';
 
 const _tool = tool({
   description:
-    'Retrieve message history from Feishu/Lark chat or thread with filtering and pagination support',
+    'Retrieve message history from Lark/Feishu chat or thread with filtering and pagination support',
   args: {
     container_id: tool.schema
       .string()
@@ -104,7 +104,7 @@ const _tool = tool({
 
       return response;
     } catch (error) {
-      console.error('Error fetching Feishu messages:', error);
+      console.error('Error fetching Lark messages:', error);
       throw new Error(
         `Failed to fetch messages: ${error instanceof Error ? error.message : String(error)}`,
       );
