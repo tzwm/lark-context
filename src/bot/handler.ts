@@ -278,7 +278,7 @@ export class BotHandler {
     if (response.info?.tokens) {
       info = `input: ${response.info.tokens.input}, output: ${response.info.tokens.output}`;
       if (response.info.duration) {
-        info += `, duration: ${response.info.duration}ms`;
+        info += `, duration: ${(response.info.duration / 1000).toFixed(2)}s`;
       }
     }
 
