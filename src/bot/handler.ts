@@ -233,7 +233,11 @@ export class BotHandler {
     chatId: string,
     messageId: string,
     response: {
-      info: { tokens?: { input: number; output: number }; cost?: number };
+      info: {
+        tokens?: { input: number; output: number };
+        cost?: number;
+        duration?: number;
+      };
       parts: Array<{
         type: string;
         text?: string;
@@ -273,6 +277,9 @@ export class BotHandler {
 
     if (response.info?.tokens) {
       info = `input: ${response.info.tokens.input}, output: ${response.info.tokens.output}`;
+      if (response.info.duration) {
+        info += `, duration: ${response.info.duration}ms`;
+      }
     }
 
     const replaceVariables = (obj: unknown, variables: Record<string, string>): unknown => {
