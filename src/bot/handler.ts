@@ -6,6 +6,8 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import type { OpenCodeService } from '../opencode/service.js';
 import type { SessionManager } from '../opencode/session-manager.js';
 import type { MessageEvent } from '../types/index.js';
+import { CommandHandler } from './command-handler.js';
+import { newSessionCommand } from './commands/new-session.js';
 import { extractBotMention, isBotMentioned, parseMessageContent } from './utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,6 +19,7 @@ export class BotHandler {
   private sessionManager: SessionManager;
   private processedEventIds = new Map<string, boolean>();
   private readonly MAX_PROCESSED_EVENTS = 10000;
+  private commandHandler = new CommandHandler();
 
   constructor(
     appId: string,
@@ -32,6 +35,8 @@ export class BotHandler {
     });
     this.openCodeService = openCodeService;
     this.sessionManager = sessionManager;
+
+    this.commandHandler.register(newSessionCommand);
   }
 
   async handleMessage(event: MessageEvent): Promise<void> {
@@ -86,7 +91,12 @@ export class BotHandler {
 
     if (!query || query.trim() === '') {
       console.log('[BotHandler] Query is empty, sending help message');
-      await this.sendMessage(chat_id, '请告诉我您需要什么帮助？');
+      await this.sendTextMessage(chat_id, '请告诉我您需要什么帮助？');
+      return;
+    }
+
+    const isCommand = await this.commandHandler.execute(this, chat_id, query);
+    if (isCommand) {
       return;
     }
 
@@ -94,7 +104,7 @@ export class BotHandler {
       await this.handleOpenCodeQuery(chat_id, query);
     } catch (error) {
       console.error('[BotHandler] Error handling query:', error);
-      await this.sendMessage(
+      await this.sendTextMessage(
         chat_id,
         `处理您的请求时出错：${error instanceof Error ? error.message : String(error)}`,
       );
@@ -158,7 +168,7 @@ export class BotHandler {
     }
   }
 
-  private async sendMessage(chatId: string, text: string): Promise<string> {
+  async sendTextMessage(chatId: string, text: string): Promise<string> {
     console.log('[BotHandler] sendMessage called:', { chatId, text });
     const content = this.createPostContent(text);
     try {
@@ -311,6 +321,14 @@ export class BotHandler {
     });
 
     await this.updateCard(chatId, messageId, card as Record<string, unknown>);
+  }
+
+  async createNewSession(chatId: string): Promise<string> {
+    console.log('[BotHandler] Creating new OpenCode session for chat:', chatId);
+    const newSessionId = await this.openCodeService.createSession();
+    await this.sessionManager.updateSessionId(chatId, newSessionId);
+    console.log('[BotHandler] New session created:', newSessionId);
+    return newSessionId;
   }
 
   private createPostContent(text: string): Record<string, unknown> {
