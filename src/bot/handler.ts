@@ -137,7 +137,7 @@ export class BotHandler {
         },
         data: {
           receive_id: chatId,
-          content,
+          content: JSON.stringify(content),
           msg_type: 'post',
         },
       });
@@ -149,8 +149,8 @@ export class BotHandler {
     }
   }
 
-  private createPostContent(text: string): string {
-    return JSON.stringify({
+  private createPostContent(text: string): Record<string, unknown> {
+    return {
       post: {
         zh_cn: {
           title: '',
@@ -164,12 +164,13 @@ export class BotHandler {
           ],
         },
       },
-    });
+    };
   }
 
   private async editMessage(chatId: string, messageId: string, content: string): Promise<void> {
     console.log('[BotHandler] editMessage called:', { chatId, messageId, content });
     try {
+      const contentObj = JSON.parse(content);
       await (
         this.client as unknown as {
           im: {
@@ -188,7 +189,7 @@ export class BotHandler {
           message_id: messageId,
         },
         data: {
-          content,
+          content: JSON.stringify(contentObj),
           msg_type: 'post',
         },
       });
