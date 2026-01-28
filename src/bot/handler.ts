@@ -102,7 +102,7 @@ export class BotHandler {
     }
 
     try {
-      await this.handleOpenCodeQuery(chat_id, query);
+      await this.handleOpenCodeQuery(chat_id, query, event.message.message_id);
     } catch (error) {
       console.error('[BotHandler] Error handling query:', error);
       await this.sendTextMessage(
@@ -112,7 +112,11 @@ export class BotHandler {
     }
   }
 
-  private async handleOpenCodeQuery(chatId: string, query: string): Promise<void> {
+  private async handleOpenCodeQuery(
+    chatId: string,
+    query: string,
+    userMessageId: string,
+  ): Promise<void> {
     console.log('[BotHandler] Handling OpenCode query for chat:', chatId);
 
     let sessionId = await this.sessionManager.getOrCreateSession(chatId);
@@ -126,12 +130,12 @@ export class BotHandler {
 
     console.log('[BotHandler] Using session:', sessionId);
 
-    const cardMessageId = await this.sendTextMessage(chatId, '正在处理您的请求，请稍候...');
+    await this.addMessageReaction(userMessageId, 'Typing');
 
     try {
       const response = await this.openCodeService.sendPrompt(sessionId, query);
 
-      await this.updateCardStreaming(chatId, cardMessageId, response);
+      await this.sendResponseCard(chatId, response, userMessageId);
       console.log('[BotHandler] Response sent successfully');
     } catch (error) {
       console.error('[BotHandler] OpenCode error:', error);
@@ -149,7 +153,7 @@ export class BotHandler {
           },
         ],
       };
-      await this.updateCard(chatId, cardMessageId, errorCard);
+      await this.sendCard(chatId, errorCard, userMessageId);
       throw error;
     }
   }
@@ -173,19 +177,51 @@ export class BotHandler {
     return this.sendCard(chatId, card);
   }
 
-  private async sendCard(chatId: string, card: Record<string, unknown>): Promise<string> {
-    console.log('[BotHandler] sendCard called:', { chatId });
+  private async addMessageReaction(messageId: string, emojiType: string): Promise<void> {
+    console.log('[BotHandler] addMessageReaction called:', { messageId, emojiType });
     try {
-      const result = await this.client.im.message.create({
-        params: {
-          receive_id_type: 'chat_id',
-        },
-        data: {
-          receive_id: chatId,
-          content: JSON.stringify(card),
-          msg_type: 'interactive',
-        },
+      await this.client.im.v1.messageReaction.create({
+        path: { message_id: messageId },
+        data: { reaction_type: { emoji_type: emojiType } },
       });
+      console.log('[BotHandler] Reaction added successfully');
+    } catch (error) {
+      console.error('[BotHandler] Failed to add reaction:', error);
+      throw error;
+    }
+  }
+
+  private async sendCard(
+    chatId: string,
+    card: Record<string, unknown>,
+    replyMessageId?: string,
+  ): Promise<string> {
+    console.log('[BotHandler] sendCard called:', { chatId, replyMessageId });
+    try {
+      let result: { data?: { message_id?: string } };
+      if (replyMessageId) {
+        result = await this.client.im.v1.message.reply({
+          path: {
+            message_id: replyMessageId,
+          },
+          data: {
+            content: JSON.stringify(card),
+            msg_type: 'interactive',
+            reply_in_thread: false,
+          },
+        });
+      } else {
+        result = await this.client.im.message.create({
+          params: {
+            receive_id_type: 'chat_id',
+          },
+          data: {
+            receive_id: chatId,
+            content: JSON.stringify(card),
+            msg_type: 'interactive',
+          },
+        });
+      }
       console.log('[BotHandler] Card sent successfully:', result);
       return result.data?.message_id || '';
     } catch (error) {
@@ -194,51 +230,15 @@ export class BotHandler {
     }
   }
 
-  private async updateCard(
+  private async sendResponseCard(
     chatId: string,
-    messageId: string,
-    card: Record<string, unknown>,
-  ): Promise<void> {
-    console.log('[BotHandler] updateCard called:', { chatId, messageId });
-    try {
-      await (
-        this.client as unknown as {
-          im: {
-            v1: {
-              message: {
-                patch: (args: {
-                  path: { message_id: string };
-                  data: { content: string; msg_type: string };
-                }) => Promise<void>;
-              };
-            };
-          };
-        }
-      ).im.v1.message.patch({
-        path: {
-          message_id: messageId,
-        },
-        data: {
-          content: JSON.stringify(card),
-          msg_type: 'interactive',
-        },
-      });
-      console.log('[BotHandler] Card updated successfully');
-    } catch (error) {
-      console.error('[BotHandler] Failed to update card:', error);
-      throw error;
-    }
-  }
-
-  private async updateCardStreaming(
-    chatId: string,
-    messageId: string,
     response: {
       info: AssistantMessage;
       parts: Part[];
     },
+    replyMessageId: string,
   ): Promise<void> {
-    console.log('[BotHandler] updateCardStreaming called:', { chatId, messageId });
+    console.log('[BotHandler] sendResponseCard called:', { chatId, replyMessageId });
 
     const templatePath = join(__dirname, 'message-template.json');
     const template = JSON.parse(readFileSync(templatePath, 'utf-8')) as Record<string, unknown>;
@@ -269,7 +269,7 @@ export class BotHandler {
       info = `input: ${response.info.tokens.input}, output: ${response.info.tokens.output}`;
       if (response.info.time?.completed) {
         const duration = response.info.time.completed - response.info.time.created;
-        info += `, duration: ${(duration / 1000).toFixed(2)}s`;
+        info += `,duration: ${(duration / 1000).toFixed(2)}s`;
       }
     }
 
@@ -300,7 +300,7 @@ export class BotHandler {
       info,
     });
 
-    await this.updateCard(chatId, messageId, card as Record<string, unknown>);
+    await this.sendCard(chatId, card as Record<string, unknown>, replyMessageId);
   }
 
   async createNewSession(chatId: string): Promise<string> {
