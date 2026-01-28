@@ -8,6 +8,8 @@ export class BotHandler {
   private client: lark.Client;
   private openCodeService: OpenCodeService;
   private sessionManager: SessionManager;
+  private processedEventIds = new Map<string, boolean>();
+  private readonly MAX_PROCESSED_EVENTS = 10000;
 
   constructor(
     appId: string,
@@ -28,6 +30,25 @@ export class BotHandler {
   async handleMessage(event: MessageEvent): Promise<void> {
     console.log('[BotHandler] handleMessage called');
     console.log('[BotHandler] Event structure:', JSON.stringify(event, null, 2));
+
+    if (!event.event_id) {
+      console.log('[BotHandler] No event_id in event, skipping');
+      return;
+    }
+
+    if (this.processedEventIds.has(event.event_id)) {
+      console.log('[BotHandler] Event already processed, skipping:', event.event_id);
+      return;
+    }
+
+    this.processedEventIds.set(event.event_id, true);
+
+    if (this.processedEventIds.size > this.MAX_PROCESSED_EVENTS) {
+      const firstKey = this.processedEventIds.keys().next().value;
+      if (firstKey) {
+        this.processedEventIds.delete(firstKey);
+      }
+    }
 
     if (!event.message) {
       console.log('[BotHandler] No message in event, skipping');
