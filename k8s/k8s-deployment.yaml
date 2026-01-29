@@ -18,7 +18,8 @@ spec:
       - name: opencode
         image: lark-context:latest
         imagePullPolicy: IfNotPresent
-        command: ["opencode serve --port 4096"]
+        workingDir: /app/data
+        command: ["opencode", "serve", "--port", "4096"]
         ports:
         - containerPort: 4096
           name: opencode
