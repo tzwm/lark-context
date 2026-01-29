@@ -44,10 +44,6 @@ cp .env.example .env
 LARK_APP_ID=your_app_id
 LARK_APP_SECRET=your_app_secret
 
-# Webhook 模式（可选）
-LARK_VERIFICATION_TOKEN=your_verification_token
-LARK_ENCRYPT_KEY=your_encrypt_key
-
 # OpenCode 配置
 OPENCODE_HOST=http://localhost:4096
 OPENCODE_TIMEOUT=60000

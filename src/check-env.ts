@@ -22,9 +22,6 @@ console.log('✅ Environment configuration is valid');
 console.log('\nConfiguration:');
 console.log(`   LARK_APP_ID: ${process.env.LARK_APP_ID?.substring(0, 8)}...`);
 console.log(`   LARK_APP_SECRET: ${process.env.LARK_APP_SECRET?.substring(0, 8)}...`);
-console.log(`   LARK_ENCRYPT_KEY: ${process.env.LARK_ENCRYPT_KEY ? '✓ Set' : '✗ Not set'}`);
-console.log(
-  `   LARK_VERIFICATION_TOKEN: ${process.env.LARK_VERIFICATION_TOKEN ? '✓ Set' : '✗ Not set'}`,
-);
-console.log(`   PORT: ${process.env.PORT || '3000'}`);
+console.log(`   OPENCODE_HOST: ${process.env.OPENCODE_HOST || 'Not set'}`);
+console.log(`   DATA_PATH: ${process.env.DATA_PATH || './data'}`);
 console.log('\n✅ All checks passed! You can now run: pnpm dev');
