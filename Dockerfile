@@ -71,6 +71,9 @@ COPY . .
 
 RUN pnpm build
 
+# custom
+ARG CUSTOM_CMD=""
+RUN if [ -n "$CUSTOM_CMD" ]; then eval "$CUSTOM_CMD"; fi
 
 # 暴露端口
 EXPOSE 3000 4096
