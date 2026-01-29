@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lark-context-deployment
+  labels:
+    app: lark-context
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lark-context
+  template:
+    metadata:
+      labels:
+        app: lark-context
+    spec:
+      containers:
+      - name: opencode
+        image: lark-context:latest
+        imagePullPolicy: IfNotPresent
+        command: ["opencode serve --port 4096"]
+        ports:
+        - containerPort: 4096
+          name: opencode
+        envFrom:
+        - secretRef:
+            name: lark-context-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      - name: bot
+        image: lark-context:latest
+        imagePullPolicy: IfNotPresent
+        command: ["node", "dist/index.js"]
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: OPENCODE_HOST
+          value: "http://localhost:4096"
+        envFrom:
+        - secretRef:
+            name: lark-context-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bot
+spec:
+  selector:
+    app: lark-context
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: http
+  type: ClusterIP
