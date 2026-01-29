@@ -259,7 +259,7 @@ export class BotHandler {
     }
 
     if (response.info?.tokens) {
-      info = `in: ${response.info.tokens.input} out: ${response.info.tokens.output}`;
+      info = `in: ${response.info.tokens.input.toLocaleString()} out: ${response.info.tokens.output.toLocaleString()}`;
       if (response.info.time?.completed) {
         const duration = response.info.time.completed - response.info.time.created;
         info += ` ${(duration / 1000).toFixed(2)}s`;
