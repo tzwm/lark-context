@@ -259,10 +259,10 @@ export class BotHandler {
     }
 
     if (response.info?.tokens) {
-      info = `input: ${response.info.tokens.input}, output: ${response.info.tokens.output}`;
+      info = `in: ${response.info.tokens.input} out: ${response.info.tokens.output}`;
       if (response.info.time?.completed) {
         const duration = response.info.time.completed - response.info.time.created;
-        info += `,duration: ${(duration / 1000).toFixed(2)}s`;
+        info += ` ${(duration / 1000).toFixed(2)}s`;
       }
     }
 
@@ -291,6 +291,7 @@ export class BotHandler {
       thinking: thinking.trim(),
       body: body.trim(),
       info,
+      model: response.info.modelID,
     });
 
     await this.sendCard(chatId, card as Record<string, unknown>, replyMessageId);
