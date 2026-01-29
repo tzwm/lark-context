@@ -1,7 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { AssistantMessage, Part } from '@opencode-ai/sdk';
 import type { OpenCodeService } from '../opencode/service.js';
@@ -9,10 +5,8 @@ import type { SessionManager } from '../opencode/session-manager.js';
 import type { MessageEvent } from '../types/index.js';
 import { CommandHandler } from './command-handler.js';
 import { newSessionCommand } from './commands/new-session.js';
+import { messageTemplate } from './message-template.js';
 import { extractBotMention, isBotMentioned, parseMessageContent } from './utils.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export class BotHandler {
   private client: lark.Client;
@@ -240,8 +234,7 @@ export class BotHandler {
   ): Promise<void> {
     console.log('[BotHandler] sendResponseCard called:', { chatId, replyMessageId });
 
-    const templatePath = join(__dirname, 'message-template.json');
-    const template = JSON.parse(readFileSync(templatePath, 'utf-8')) as Record<string, unknown>;
+    const template = messageTemplate;
 
     let thinking = '';
     let body = '';
