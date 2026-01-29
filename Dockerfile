@@ -55,6 +55,12 @@ RUN curl -fsSL https://opencode.ai/install | bash
 
 ENV PATH="/root/.bun/bin:/root/.opencode/bin:${PATH}"
 
+# init opencode global
+COPY opencode /root/.config/opencode
+WORKDIR /root/.config/opencode
+RUN bun install
+
+# init bot
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml* ./
@@ -65,10 +71,9 @@ COPY . .
 
 RUN pnpm build
 
-COPY opencode /root/.config/opencode
 
 # 暴露端口
 EXPOSE 3000 4096
 
 # 启动脚本：先启动 OpenCode server，然后启动 bot
-CMD ["sh", "-c", "opencode serve --port 4096 & sleep 5 && node dist/index.js"]
+CMD ["opencode serve --port 4096 & sleep 5 && node dist/index.js"]
