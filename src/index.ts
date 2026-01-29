@@ -1,14 +1,7 @@
 import 'dotenv/config';
-import * as lark from '@larksuiteoapi/node-sdk';
-import express from 'express';
 import { Bot } from './bot/index.js';
 import { OpenCodeService } from './opencode/service.js';
 import { SessionManager } from './opencode/session-manager.js';
-
-const PORT = Number.parseInt(process.env.PORT || '3000', 10);
-const EVENT_MODE = (process.env.LARK_EVENT_MODE || 'long-connection') as
-  | 'webhook'
-  | 'long-connection';
 
 const requiredEnvVars = ['LARK_APP_ID', 'LARK_APP_SECRET', 'DATA_PATH', 'OPENCODE_HOST'];
 for (const envVar of requiredEnvVars) {
@@ -49,40 +42,14 @@ console.log('[Init] Session manager initialized');
 const bot = new Bot({
   appId: process.env.LARK_APP_ID as string,
   appSecret: process.env.LARK_APP_SECRET as string,
-  encryptKey: process.env.LARK_ENCRYPT_KEY,
-  verificationToken: process.env.LARK_VERIFICATION_TOKEN,
-  mode: EVENT_MODE,
   openCodeService,
   sessionManager,
 });
 
-if (EVENT_MODE === 'long-connection') {
-  const wsClient = bot.getWSClient();
-  if (wsClient) {
-    wsClient.start({
-      eventDispatcher: bot.getEventDispatcher(),
-    });
-    console.log('Lark Bot is running in long-connection mode');
-  }
-} else {
-  const app = express();
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  app.use(
-    '/webhook/event',
-    lark.adaptExpress(bot.getEventDispatcher(), {
-      autoChallenge: true,
-    }),
-  );
-
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+const wsClient = bot.getWSClient();
+if (wsClient) {
+  wsClient.start({
+    eventDispatcher: bot.getEventDispatcher(),
   });
-
-  app.listen(PORT, () => {
-    console.log(`Lark Bot server is running on port ${PORT}`);
-    console.log(`Webhook endpoint: http://localhost:${PORT}/webhook/event`);
-    console.log(`Health check: http://localhost:${PORT}/health`);
-  });
+  console.log('Lark Bot is running in long-connection mode');
 }
