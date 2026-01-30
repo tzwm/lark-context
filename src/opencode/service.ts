@@ -1,6 +1,6 @@
 import type { AssistantMessage, Part } from '@opencode-ai/sdk';
 import { createOpencodeClient } from '@opencode-ai/sdk';
-import type { OpenCodeConfig } from '../types/index.js';
+import type { ChatInfo, OpenCodeConfig } from '../types/index.js';
 
 const SYSTEM_PROMPT = `You are an AI assistant integrated with Feishu/Lark.
 You are working in a collaborative environment. Be helpful, concise, and provide clear answers.`;
@@ -33,7 +33,7 @@ export class OpenCodeService {
     }
   }
 
-  async createSession(): Promise<string> {
+  async createSession(chatInfo: ChatInfo): Promise<string> {
     try {
       console.log('[OpenCode] Creating session...');
       const createResult = await this.client.session.create({
@@ -49,7 +49,25 @@ export class OpenCodeService {
       const sessionId = createResult.data.id;
       console.log('[OpenCode] Session created:', sessionId);
 
-      console.log('[OpenCode] Setting system prompt...');
+      const isPrivateChat = chatInfo.chatType === 'p2p';
+      const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
+      let systemPrompt = `${SYSTEM_PROMPT}\n\nCurrent Context:\n- Chat Type: ${chatTypeInfo}\n- Chat ID: ${chatInfo.chatId}`;
+
+      if (chatInfo.chatName) {
+        systemPrompt += `\n- Chat Name: ${chatInfo.chatName}`;
+      }
+
+      // 只在私聊时注入用户信息
+      if (isPrivateChat) {
+        if (chatInfo.senderId) {
+          systemPrompt += `\n- User ID: ${chatInfo.senderId}`;
+        }
+        if (chatInfo.senderName) {
+          systemPrompt += `\n- User Name: ${chatInfo.senderName}`;
+        }
+      }
+
+      console.log('[OpenCode] Setting system prompt:\n', systemPrompt);
       await this.client.session.prompt({
         path: { id: sessionId },
         body: {
@@ -57,7 +75,7 @@ export class OpenCodeService {
           parts: [
             {
               type: 'text',
-              text: SYSTEM_PROMPT,
+              text: systemPrompt,
             },
           ],
         },

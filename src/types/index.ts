@@ -24,3 +24,11 @@ export interface OpenCodeConfig {
   username?: string;
   password?: string;
 }
+
+export interface ChatInfo {
+  chatId: string;
+  chatType: string;
+  chatName?: string;
+  senderId?: string;
+  senderName?: string;
+}

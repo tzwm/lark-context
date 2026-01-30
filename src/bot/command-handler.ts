@@ -1,9 +1,10 @@
+import type { ChatInfo } from '../types/index.js';
 import type { BotHandler } from './handler.js';
 
 export interface Command {
   name: string;
   description: string;
-  execute(botHandler: BotHandler, chatId: string, args: string[]): Promise<void>;
+  execute(botHandler: BotHandler, chatInfo: ChatInfo, args: string[]): Promise<void>;
 }
 
 export class CommandHandler {
@@ -13,7 +14,7 @@ export class CommandHandler {
     this.commands.set(command.name, command);
   }
 
-  async execute(botHandler: BotHandler, chatId: string, query: string): Promise<boolean> {
+  async execute(botHandler: BotHandler, chatInfo: ChatInfo, query: string): Promise<boolean> {
     const trimmedQuery = query.trim();
     if (!trimmedQuery.startsWith('/')) {
       return false;
@@ -28,7 +29,7 @@ export class CommandHandler {
       return false;
     }
 
-    await command.execute(botHandler, chatId, args);
+    await command.execute(botHandler, chatInfo, args);
     return true;
   }
 

@@ -2,7 +2,7 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import type { AssistantMessage, Part } from '@opencode-ai/sdk';
 import type { OpenCodeService } from '../opencode/service.js';
 import type { SessionManager } from '../opencode/session-manager.js';
-import type { MessageEvent } from '../types/index.js';
+import type { ChatInfo, MessageEvent } from '../types/index.js';
 import { CommandHandler } from './command-handler.js';
 import { newSessionCommand } from './commands/new-session.js';
 import { messageTemplate } from './message-template.js';
@@ -90,13 +90,23 @@ export class BotHandler {
       return;
     }
 
-    const isCommand = await this.commandHandler.execute(this, chat_id, query);
+    console.log('[BotHandler] Full event sender:', JSON.stringify(event.sender, null, 2));
+
+    const basicChatInfo = {
+      chatId: chat_id,
+      chatType: event.message.chat_type,
+      senderId: event.sender?.sender_id?.open_id,
+    };
+
+    const detailedChatInfo = await this.getDetailedChatInfo(basicChatInfo);
+
+    const isCommand = await this.commandHandler.execute(this, detailedChatInfo, query);
     if (isCommand) {
       return;
     }
 
     try {
-      await this.handleOpenCodeQuery(chat_id, query, event.message.message_id);
+      await this.handleOpenCodeQuery(query, event.message.message_id, detailedChatInfo);
     } catch (error) {
       console.error('[BotHandler] Error handling query:', error);
       await this.sendTextMessage(
@@ -107,18 +117,18 @@ export class BotHandler {
   }
 
   private async handleOpenCodeQuery(
-    chatId: string,
     query: string,
     userMessageId: string,
+    chatInfo: ChatInfo,
   ): Promise<void> {
-    console.log('[BotHandler] Handling OpenCode query for chat:', chatId);
+    console.log('[BotHandler] Handling OpenCode query for chat:', chatInfo.chatId);
 
-    let sessionId = await this.sessionManager.getOrCreateSession(chatId);
+    let sessionId = await this.sessionManager.getOrCreateSession(chatInfo.chatId);
 
     if (!sessionId) {
       console.log('[BotHandler] Creating new OpenCode session');
-      const newSessionId = await this.openCodeService.createSession();
-      await this.sessionManager.updateSessionId(chatId, newSessionId);
+      const newSessionId = await this.openCodeService.createSession(chatInfo);
+      await this.sessionManager.updateSessionId(chatInfo.chatId, newSessionId);
       sessionId = newSessionId;
     }
 
@@ -129,7 +139,7 @@ export class BotHandler {
     try {
       const response = await this.openCodeService.sendPrompt(sessionId, query);
 
-      await this.sendResponseCard(chatId, response, userMessageId);
+      await this.sendResponseCard(chatInfo.chatId, response, userMessageId);
       console.log('[BotHandler] Response sent successfully');
     } catch (error) {
       console.error('[BotHandler] OpenCode error:', error);
@@ -147,9 +157,51 @@ export class BotHandler {
           },
         ],
       };
-      await this.sendCard(chatId, errorCard, userMessageId);
+      await this.sendCard(chatInfo.chatId, errorCard, userMessageId);
       throw error;
     }
+  }
+
+  private async getDetailedChatInfo(chatInfo: ChatInfo): Promise<ChatInfo> {
+    const result: ChatInfo = {
+      chatId: chatInfo.chatId,
+      chatType: chatInfo.chatType,
+      senderId: chatInfo.senderId,
+      senderName: chatInfo.senderName,
+    };
+
+    try {
+      const chatResponse = await this.client.im.v1.chat.get({
+        path: { chat_id: chatInfo.chatId },
+        params: { user_id_type: 'open_id' },
+      });
+
+      if (chatResponse.data?.name) {
+        result.chatName = chatResponse.data.name;
+      }
+    } catch (error) {
+      console.error('[BotHandler] Failed to get chat info:', error);
+    }
+
+    if (chatInfo.senderId) {
+      try {
+        const userResponse = await this.client.contact.v3.user.get({
+          path: { user_id: chatInfo.senderId },
+          params: {
+            user_id_type: 'open_id',
+            department_id_type: 'open_department_id',
+          },
+        });
+
+        if (userResponse.data?.user?.name) {
+          result.senderName = userResponse.data.user.name;
+        }
+      } catch (error) {
+        console.error('[BotHandler] Failed to get user info:', error);
+      }
+    }
+
+    return result;
   }
 
   async sendTextMessage(chatId: string, text: string): Promise<string> {
@@ -297,10 +349,10 @@ export class BotHandler {
     await this.sendCard(chatId, card as Record<string, unknown>, replyMessageId);
   }
 
-  async createNewSession(chatId: string): Promise<string> {
-    console.log('[BotHandler] Creating new OpenCode session for chat:', chatId);
-    const newSessionId = await this.openCodeService.createSession();
-    await this.sessionManager.updateSessionId(chatId, newSessionId);
+  async createNewSession(chatInfo: ChatInfo): Promise<string> {
+    console.log('[BotHandler] Creating new OpenCode session for chat:', chatInfo.chatId);
+    const newSessionId = await this.openCodeService.createSession(chatInfo);
+    await this.sessionManager.updateSessionId(chatInfo.chatId, newSessionId);
     console.log('[BotHandler] New session created:', newSessionId);
     return newSessionId;
   }
