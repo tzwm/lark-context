@@ -13,14 +13,12 @@ for (const envVar of requiredEnvVars) {
 
 const DATA_PATH = process.env.DATA_PATH as string;
 const OPENCODE_HOST = process.env.OPENCODE_HOST as string;
-const OPENCODE_TIMEOUT = Number.parseInt(process.env.OPENCODE_TIMEOUT || '60000', 10);
 const OPENCODE_USERNAME = process.env.OPENCODE_SERVER_USERNAME;
 const OPENCODE_PASSWORD = process.env.OPENCODE_SERVER_PASSWORD;
 
 console.log('[Init] Initializing OpenCode service...');
 const openCodeService = new OpenCodeService({
   host: OPENCODE_HOST,
-  timeout: OPENCODE_TIMEOUT,
   dataPath: DATA_PATH,
   username: OPENCODE_USERNAME,
   password: OPENCODE_PASSWORD,

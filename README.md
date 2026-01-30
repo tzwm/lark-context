@@ -46,7 +46,6 @@ LARK_APP_SECRET=your_app_secret
 
 # OpenCode 配置
 OPENCODE_HOST=http://localhost:4096
-OPENCODE_TIMEOUT=60000
 
 # 数据路径
 DATA_PATH=./data

@@ -19,7 +19,6 @@ export interface SessionMapping {
 
 export interface OpenCodeConfig {
   host: string;
-  timeout: number;
   dataPath: string;
   username?: string;
   password?: string;
