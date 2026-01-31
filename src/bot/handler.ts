@@ -383,10 +383,12 @@ export class BotHandler {
           };
           // 在 body 后面插入图片组件
           bodyElements.splice(bodyIndex + 1, 0, imgCombination);
+          console.log('[BotHandler] Inserted img_combination with', images.length, 'images');
         }
       }
     }
 
+    console.log('[BotHandler] Sending card:', JSON.stringify(card, null, 2));
     await this.sendCard(chatId, card, replyMessageId);
   }
 
