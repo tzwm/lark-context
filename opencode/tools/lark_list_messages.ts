@@ -1,9 +1,9 @@
-import lark from '@larksuiteoapi/node-sdk';
 import { tool } from '@opencode-ai/plugin';
+import { larkRequest } from './lark_client';
 
 const _tool = tool({
   description:
-    'Retrieve message history from Lark/Feishu chat or thread with filtering and pagination support',
+    'Retrieve message history from Lark/Feishu chat or thread with filtering and pagination support. Returns the raw API response.',
   args: {
     container_id: tool.schema
       .string()
@@ -42,73 +42,29 @@ const _tool = tool({
       throw new Error('LARK_APP_ID and LARK_APP_SECRET environment variables are required');
     }
 
-    try {
-      const larkClient = new lark.Client({
-        appId: LARK_APP_ID,
-        appSecret: LARK_APP_SECRET,
-        appType: lark.AppType.SelfBuild,
-        domain: lark.Domain.Feishu,
-      });
+    const searchParams = new URLSearchParams();
+    searchParams.append('container_id_type', args.container_id_type);
+    searchParams.append('container_id', args.container_id);
+    searchParams.append('page_size', String(args.page_size));
+    searchParams.append('sort_type', args.sort_type);
 
-      const result = await larkClient.im.message.list({
-        params: {
-          container_id_type: args.container_id_type,
-          container_id: args.container_id,
-          page_size: args.page_size,
-          sort_type: args.sort_type,
-          page_token: args.page_token,
-          start_time: args.start_time,
-          end_time: args.end_time,
-        },
-      });
-
-      if (!result.data?.items) {
-        return 'No messages found';
-      }
-
-      const messages = result.data.items.map(msg => {
-        const msgData = msg as Record<string, unknown>;
-        const sender = msgData.sender as Record<string, unknown> | undefined;
-        const senderType = sender?.sender_type || 'unknown';
-        const senderId =
-          (sender?.sender_id as Record<string, unknown> | undefined)?.open_id || 'unknown';
-        const msgType = msgData.msg_type || 'unknown';
-        const createTime = msgData.create_time || 'unknown';
-        const msgId = msgData.message_id || 'unknown';
-        const contentStr = msgData.content as string | undefined;
-        let content = '';
-
-        try {
-          if (contentStr) {
-            const parsed = JSON.parse(contentStr);
-            if (parsed.text) {
-              content = parsed.text;
-            } else if (parsed.elements) {
-              content = parsed.elements.map((el: { text?: string }) => el.text || '').join('');
-            } else {
-              content = JSON.stringify(parsed);
-            }
-          }
-        } catch {
-          content = contentStr || '';
-        }
-
-        return `[${createTime}] ${msgType} | ${senderType} (${senderId}) | ${msgId}: ${content}`;
-      });
-
-      const response = messages.join('\n\n');
-
-      if (result.data.has_more) {
-        return `${response}\n\n---\nMore messages available. Use page_token: ${result.data.page_token} to fetch next page.`;
-      }
-
-      return response;
-    } catch (error) {
-      console.error('Error fetching Lark messages:', error);
-      throw new Error(
-        `Failed to fetch messages: ${error instanceof Error ? error.message : String(error)}`,
-      );
+    if (args.page_token) {
+      searchParams.append('page_token', args.page_token);
     }
+    if (args.start_time) {
+      searchParams.append('start_time', args.start_time);
+    }
+    if (args.end_time) {
+      searchParams.append('end_time', args.end_time);
+    }
+
+    const endpoint = `/im/v1/messages?${searchParams.toString()}`;
+
+    const result = await larkRequest(LARK_APP_ID, LARK_APP_SECRET, endpoint, {
+      method: 'GET',
+    });
+
+    return JSON.stringify(result);
   },
 });
 
