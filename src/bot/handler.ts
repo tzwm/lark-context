@@ -286,7 +286,7 @@ export class BotHandler {
   ): Promise<void> {
     console.log('[BotHandler] sendResponseCard called:', { chatId, replyMessageId });
 
-    const template = messageTemplate;
+    const template = JSON.parse(JSON.stringify(messageTemplate));
 
     let thinking = '';
     let body = '';
@@ -308,6 +308,16 @@ export class BotHandler {
       } else if (part.type === 'reasoning' && part.text) {
         thinking += `${part.text}\n\n`;
       }
+    }
+
+    // 从 body 中提取 image keys
+    const imageKeyPattern = /img_v3_[a-zA-Z0-9_]+/g;
+    const images: string[] = [];
+    const matches = body.match(imageKeyPattern);
+    if (matches) {
+      images.push(...matches);
+      // 从 body 中移除 image keys
+      body = body.replace(imageKeyPattern, '').replace(/\n\n+/g, '\n\n').trim();
     }
 
     if (response.info?.tokens) {
@@ -339,14 +349,41 @@ export class BotHandler {
       return obj;
     };
 
+    // 构建基础卡片
     const card = replaceVariables(template, {
       thinking: thinking.trim(),
       body: body.trim(),
       info,
       model: response.info.modelID,
-    });
+    }) as Record<string, unknown>;
 
-    await this.sendCard(chatId, card as Record<string, unknown>, replyMessageId);
+    // 如果有图片，插入 img_combination 组件
+    if (images.length > 0 && card.body && typeof card.body === 'object') {
+      const bodyElements = (card.body as Record<string, unknown>).elements as Array<
+        Record<string, unknown>
+      >;
+      if (bodyElements) {
+        // 找到 body markdown 组件的索引
+        const bodyIndex = bodyElements.findIndex(
+          el => el.tag === 'markdown' && (el.content as string)?.includes('${body}'),
+        );
+        if (bodyIndex !== -1) {
+          const imgCombination = {
+            tag: 'img_combination',
+            combination_mode:
+              images.length === 1 ? 'single' : images.length === 2 ? 'double' : 'trisect',
+            img_list: images.map(imgKey => ({ img_key: imgKey })),
+            img_list_length: images.length,
+            combination_transparent: false,
+            margin: '8px 0px 0px 0px',
+          };
+          // 在 body 后面插入图片组件
+          bodyElements.splice(bodyIndex + 1, 0, imgCombination);
+        }
+      }
+    }
+
+    await this.sendCard(chatId, card, replyMessageId);
   }
 
   async createNewSession(chatInfo: ChatInfo): Promise<string> {
