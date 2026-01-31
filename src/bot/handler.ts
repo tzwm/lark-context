@@ -311,7 +311,7 @@ export class BotHandler {
     }
 
     // 从 body 中提取 image keys
-    const imageKeyPattern = /img_v3_[a-zA-Z0-9_]+/g;
+    const imageKeyPattern = /img_v3_[a-zA-Z0-9_-]+/g;
     const images: string[] = [];
     const matches = body.match(imageKeyPattern);
     if (matches) {
