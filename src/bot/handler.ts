@@ -310,14 +310,18 @@ export class BotHandler {
       }
     }
 
-    // 从 body 中提取 image keys
+    // 从 body 中提取 image keys，并替换为图1、图2等描述
     const imageKeyPattern = /img_v3_[a-zA-Z0-9_-]+/g;
     const images: string[] = [];
     const matches = body.match(imageKeyPattern);
     if (matches) {
       images.push(...matches);
-      // 从 body 中移除 image keys
-      body = body.replace(imageKeyPattern, '').replace(/\n\n+/g, '\n\n').trim();
+      // 将 image keys 替换为图1、图2等描述
+      let imageIndex = 0;
+      body = body.replace(imageKeyPattern, () => {
+        imageIndex++;
+        return `[图${imageIndex}]`;
+      });
     }
 
     if (response.info?.tokens) {
