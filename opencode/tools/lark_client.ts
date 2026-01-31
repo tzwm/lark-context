@@ -55,6 +55,8 @@ export async function larkRequest(
     ? endpoint
     : `https://open.feishu.cn/open-apis${endpoint}`;
 
+  console.log('[LarkRequest]', options.method || 'GET', url);
+
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -64,5 +66,49 @@ export async function larkRequest(
     },
   });
 
-  return res.json();
+  console.log('[LarkRequest] Response status:', res.status);
+
+  const text = await res.text();
+  console.log('[LarkRequest] Response text:', text);
+
+  try {
+    const data = JSON.parse(text);
+    return data;
+  } catch {
+    return { code: res.status, msg: text || 'Request failed' };
+  }
+}
+
+/**
+ * 从飞书 URL 中提取资源类型和 ID
+ * 支持的 URL 格式：
+ * - Wiki: https://xxx.feishu.cn/wiki/{node_token}
+ * - Docx: https://xxx.feishu.cn/docx/{document_id}
+ * - Bitable: https://xxx.feishu.cn/base/{app_token}
+ */
+export function parseFeishuUrl(
+  url: string,
+): { type: 'wiki' | 'docx' | 'bitable'; id: string } | null {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+
+    if (pathParts.length < 2) return null;
+
+    const [type, id] = pathParts;
+
+    if (type === 'wiki' && id) {
+      return { type: 'wiki', id };
+    }
+    if (type === 'docx' && id) {
+      return { type: 'docx', id };
+    }
+    if (type === 'base' && id) {
+      return { type: 'bitable', id };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
