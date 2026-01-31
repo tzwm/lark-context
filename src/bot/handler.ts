@@ -353,6 +353,27 @@ export class BotHandler {
       return obj;
     };
 
+    // 如果有图片，先在模板中插入 img_combination 组件
+    if (images.length > 0) {
+      const templateElements = template.body.elements as Array<Record<string, unknown>>;
+      // 找到 body markdown 组件的索引（第三个元素，索引为2）
+      const bodyIndex = 2;
+      if (templateElements[bodyIndex]?.tag === 'markdown') {
+        const imgCombination = {
+          tag: 'img_combination',
+          combination_mode:
+            images.length === 1 ? 'single' : images.length === 2 ? 'double' : 'trisect',
+          img_list: images.map(imgKey => ({ img_key: imgKey })),
+          img_list_length: images.length,
+          combination_transparent: false,
+          margin: '8px 0px 0px 0px',
+        };
+        // 在 body 后面插入图片组件
+        templateElements.splice(bodyIndex + 1, 0, imgCombination);
+        console.log('[BotHandler] Inserted img_combination with', images.length, 'images');
+      }
+    }
+
     // 构建基础卡片
     const card = replaceVariables(template, {
       thinking: thinking.trim(),
@@ -360,33 +381,6 @@ export class BotHandler {
       info,
       model: response.info.modelID,
     }) as Record<string, unknown>;
-
-    // 如果有图片，插入 img_combination 组件
-    if (images.length > 0 && card.body && typeof card.body === 'object') {
-      const bodyElements = (card.body as Record<string, unknown>).elements as Array<
-        Record<string, unknown>
-      >;
-      if (bodyElements) {
-        // 找到 body markdown 组件的索引
-        const bodyIndex = bodyElements.findIndex(
-          el => el.tag === 'markdown' && (el.content as string)?.includes('${body}'),
-        );
-        if (bodyIndex !== -1) {
-          const imgCombination = {
-            tag: 'img_combination',
-            combination_mode:
-              images.length === 1 ? 'single' : images.length === 2 ? 'double' : 'trisect',
-            img_list: images.map(imgKey => ({ img_key: imgKey })),
-            img_list_length: images.length,
-            combination_transparent: false,
-            margin: '8px 0px 0px 0px',
-          };
-          // 在 body 后面插入图片组件
-          bodyElements.splice(bodyIndex + 1, 0, imgCombination);
-          console.log('[BotHandler] Inserted img_combination with', images.length, 'images');
-        }
-      }
-    }
 
     console.log('[BotHandler] Sending card:', JSON.stringify(card, null, 2));
     await this.sendCard(chatId, card, replyMessageId);
