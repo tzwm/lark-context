@@ -64,8 +64,6 @@ const _tool = tool({
       method: 'GET',
     });
 
-    console.log('[Lark List Messages] Response:', JSON.stringify(result, null, 2));
-
     return JSON.stringify(result);
   },
 });

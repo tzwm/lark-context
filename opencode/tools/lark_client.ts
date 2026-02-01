@@ -55,8 +55,6 @@ export async function larkRequest(
     ? endpoint
     : `https://open.feishu.cn/open-apis${endpoint}`;
 
-  console.log('[LarkRequest]', options.method || 'GET', url);
-
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -66,10 +64,7 @@ export async function larkRequest(
     },
   });
 
-  console.log('[LarkRequest] Response status:', res.status);
-
   const text = await res.text();
-  console.log('[LarkRequest] Response text:', text);
 
   try {
     const data = JSON.parse(text);

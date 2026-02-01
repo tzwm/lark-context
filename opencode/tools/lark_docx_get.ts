@@ -35,9 +35,6 @@ const _tool = tool({
       throw new Error('Either url or document_id must be provided');
     }
 
-    console.log('[Lark Docx Get] documentId:', documentId);
-
-    // 获取文档元数据
     const metadataResult = await larkRequest(
       LARK_APP_ID,
       LARK_APP_SECRET,
@@ -64,7 +61,6 @@ const _tool = tool({
         },
       );
     } catch (error) {
-      console.log('[Lark Docx Get] Failed to get blocks:', error);
       contentResult = { error: 'Failed to fetch content', details: String(error) };
     }
 
@@ -76,8 +72,6 @@ const _tool = tool({
         content: contentResult,
       },
     };
-
-    console.log('[Lark Docx Get] Response:', JSON.stringify(result, null, 2));
 
     return JSON.stringify(result);
   },
