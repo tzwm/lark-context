@@ -2,7 +2,12 @@ import type { MessageContent } from '../types/index.js';
 
 export function parseMessageContent(content: string): MessageContent {
   try {
-    return JSON.parse(content) as MessageContent;
+    const parsed = JSON.parse(content);
+    // 确保 mentions 字段被正确传递
+    return {
+      text: parsed.text || '',
+      mentions: parsed.mentions,
+    } as MessageContent;
   } catch {
     return { text: content };
   }
