@@ -1,15 +1,18 @@
 import type { MessageContent } from '../types/index.js';
 
-export function parseMessageContent(content: string): MessageContent {
+export function parseMessageContent(
+  content: string,
+  mentions?: MessageContent['mentions'],
+): MessageContent {
   try {
     const parsed = JSON.parse(content);
-    // 确保 mentions 字段被正确传递
+    // 使用传入的 mentions 或从 content 中解析
     return {
       text: parsed.text || '',
-      mentions: parsed.mentions,
+      mentions: mentions || parsed.mentions,
     } as MessageContent;
   } catch {
-    return { text: content };
+    return { text: content, mentions };
   }
 }
 

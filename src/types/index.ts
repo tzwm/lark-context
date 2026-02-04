@@ -7,9 +7,9 @@ export type MessageContent = {
   mentions?: Array<{
     key: string;
     id: {
-      open_id: string;
-      union_id: string;
-      user_id: string | null;
+      open_id?: string;
+      union_id?: string;
+      user_id?: string | null;
     };
     name: string;
     tenant_key?: string;

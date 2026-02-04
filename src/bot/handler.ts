@@ -99,15 +99,15 @@ export class BotHandler {
       return;
     }
 
-    const { chat_id, content, message_type } = event.message;
-    console.log('[BotHandler] Message details:', { chat_id, message_type, content });
+    const { chat_id, content, message_type, mentions } = event.message;
+    console.log('[BotHandler] Message details:', { chat_id, message_type, content, mentions });
 
     if (message_type !== 'text') {
       console.log('[BotHandler] Message is not text type, skipping');
       return;
     }
 
-    const messageContent = parseMessageContent(content);
+    const messageContent = parseMessageContent(content, mentions);
     console.log('[BotHandler] Parsed message content:', messageContent);
 
     const isPrivateChat = event.message.chat_type === 'p2p';
