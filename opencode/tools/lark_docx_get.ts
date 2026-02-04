@@ -1,7 +1,8 @@
+import type { ToolDefinition } from '@opencode-ai/plugin';
 import { tool } from '@opencode-ai/plugin';
 import { larkRequest, parseFeishuUrl } from './lark_client';
 
-const _tool = tool({
+const _tool: ToolDefinition = tool({
   description:
     '获取飞书 Docx 文档的详细信息（包含元数据和完整内容）。支持传入完整的 Docx URL 或 document_id。',
   args: {

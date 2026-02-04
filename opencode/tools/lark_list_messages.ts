@@ -1,7 +1,8 @@
+import type { ToolDefinition } from '@opencode-ai/plugin';
 import { tool } from '@opencode-ai/plugin';
 import { larkRequest } from './lark_client';
 
-const _tool = tool({
+const _tool: ToolDefinition = tool({
   description:
     'Retrieve message history from Lark/Feishu chat or thread with filtering and pagination support. Returns the raw API response.',
   args: {

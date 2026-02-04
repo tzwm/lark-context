@@ -1,7 +1,8 @@
+import type { ToolDefinition } from '@opencode-ai/plugin';
 import { tool } from '@opencode-ai/plugin';
 import { larkRequest, parseFeishuUrl } from './lark_client';
 
-const _tool = tool({
+const _tool: ToolDefinition = tool({
   description: '获取飞书多维表格(Bitable)的详细信息。支持传入完整的 Bitable URL 或 app_token。',
   args: {
     url: tool.schema

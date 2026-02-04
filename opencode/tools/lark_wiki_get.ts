@@ -1,7 +1,8 @@
+import type { ToolDefinition } from '@opencode-ai/plugin';
 import { tool } from '@opencode-ai/plugin';
 import { larkRequest, parseFeishuUrl } from './lark_client';
 
-const _tool = tool({
+const _tool: ToolDefinition = tool({
   description: `获取飞书 Wiki 知识库节点的索引信息（如节点类型、标题、obj_token 等）。
 
 注意：此工具只返回 Wiki 节点的元数据索引，不返回具体内容。

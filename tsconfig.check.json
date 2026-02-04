@@ -1,14 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "include": ["src/**/*", "opencode/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "opencode/tools/lark_bitable_get.ts",
-    "opencode/tools/lark_docx_get.ts",
-    "opencode/tools/lark_list_messages.ts",
-    "opencode/tools/lark_wiki_get.ts"
-  ],
   "compilerOptions": {
     "rootDir": "."
   }
