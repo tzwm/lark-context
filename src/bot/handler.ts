@@ -15,6 +15,7 @@ export class BotHandler {
   private processedEventIds = new Map<string, boolean>();
   private readonly MAX_PROCESSED_EVENTS = 10000;
   private commandHandler = new CommandHandler();
+  private botId: string;
 
   constructor(
     appId: string,
@@ -30,6 +31,7 @@ export class BotHandler {
     });
     this.openCodeService = openCodeService;
     this.sessionManager = sessionManager;
+    this.botId = appId;
 
     this.commandHandler.register(newSessionCommand);
   }
@@ -76,12 +78,14 @@ export class BotHandler {
     const isPrivateChat = event.message.chat_type === 'p2p';
     console.log('[BotHandler] Is private chat:', isPrivateChat);
 
-    if (!isPrivateChat && !isBotMentioned(messageContent.text)) {
+    if (!isPrivateChat && !isBotMentioned(messageContent, this.botId)) {
       console.log('[BotHandler] Bot not mentioned in group chat, skipping');
       return;
     }
 
-    const query = isPrivateChat ? messageContent.text : extractBotMention(messageContent.text);
+    const query = isPrivateChat
+      ? messageContent.text
+      : extractBotMention(messageContent.text, this.botId);
     console.log('[BotHandler] Extracted query:', query);
 
     if (!query || query.trim() === '') {

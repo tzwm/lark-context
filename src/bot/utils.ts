@@ -8,11 +8,17 @@ export function parseMessageContent(content: string): MessageContent {
   }
 }
 
-export function extractBotMention(text: string): string | null {
+export function extractBotMention(text: string, botId: string): string | null {
   const mentionRegex = /@_user_\d+/g;
   const mentions = text.match(mentionRegex);
 
   if (!mentions || mentions.length === 0) {
+    return null;
+  }
+
+  // 检查是否有提及 bot
+  const botMentionKey = `@_user_${botId}`;
+  if (!mentions.includes(botMentionKey)) {
     return null;
   }
 
@@ -24,6 +30,13 @@ export function extractBotMention(text: string): string | null {
   return cleanText || null;
 }
 
-export function isBotMentioned(text: string): boolean {
-  return /@_user_\d+/.test(text);
+export function isBotMentioned(messageContent: MessageContent, botId: string): boolean {
+  // 优先使用 mentions 数组来检查
+  if (messageContent.mentions && messageContent.mentions.length > 0) {
+    return messageContent.mentions.some(mention => mention.id === botId);
+  }
+
+  // 如果没有 mentions 数组，则回退到文本检查
+  const botMentionPattern = new RegExp(`@_user_${botId}`);
+  return botMentionPattern.test(messageContent.text);
 }
