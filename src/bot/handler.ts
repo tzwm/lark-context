@@ -47,15 +47,24 @@ export class BotHandler {
   private async initializeBotOpenId(): Promise<void> {
     try {
       // 使用 bot/v3/info API 获取 bot 信息
-      const response = (await larkRequest(this.appId, this.appSecret, '/bot/v3/info', {
+      const response = await larkRequest(this.appId, this.appSecret, '/bot/v3/info', {
         method: 'GET',
-      })) as { code: number; msg: string; data?: { bot?: { open_id: string } } };
+      });
 
-      if (response.code === 0 && response.data?.bot?.open_id) {
-        this.botOpenId = response.data.bot.open_id;
+      console.log('[BotHandler] Bot info API response:', JSON.stringify(response, null, 2));
+
+      const typedResponse = response as {
+        code: number;
+        msg: string;
+        bot?: { open_id: string };
+      };
+
+      // API 返回的 bot 信息直接在 response.bot 中
+      if (typedResponse.code === 0 && typedResponse.bot?.open_id) {
+        this.botOpenId = typedResponse.bot.open_id;
         console.log('[BotHandler] Bot open_id initialized from API:', this.botOpenId);
       } else {
-        console.error('[BotHandler] Failed to get bot open_id from API:', response.msg);
+        console.error('[BotHandler] Failed to get bot open_id from API:', typedResponse.msg);
       }
     } catch (error) {
       console.error('[BotHandler] Failed to initialize bot open_id from API:', error);
