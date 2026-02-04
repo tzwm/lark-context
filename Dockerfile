@@ -51,6 +51,7 @@ RUN git config --global user.name "lark-context" \
     && git config --global user.email "lark-context@localhost" \
     && git config --global init.defaultBranch main
 
+ADD https://api.github.com/repos/opencode-ai/opencode/releases/latest /tmp/opencode_version.json
 RUN curl -fsSL https://opencode.ai/install | bash
 
 ENV PATH="/root/.bun/bin:/root/.opencode/bin:${PATH}"
