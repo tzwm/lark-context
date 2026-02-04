@@ -1,6 +1,6 @@
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { AssistantMessage, Part } from '@opencode-ai/sdk';
-import { larkRequest } from '../../opencode/tools/lark_client.js';
+import { larkRequest } from '../lark_client.js';
 import type { OpenCodeService } from '../opencode/service.js';
 import type { SessionManager } from '../opencode/session-manager.js';
 import type { ChatInfo, MessageEvent } from '../types/index.js';

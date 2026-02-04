@@ -35,14 +35,14 @@ const _tool = tool({
       throw new Error('Either url or document_id must be provided');
     }
 
-    const metadataResult = await larkRequest(
+    const metadataResult = (await larkRequest(
       LARK_APP_ID,
       LARK_APP_SECRET,
       `/docx/v1/documents/${documentId}`,
       {
         method: 'GET',
       },
-    );
+    )) as { code: number; [key: string]: unknown };
 
     // 检查元数据是否获取成功
     if (metadataResult.code !== 0) {

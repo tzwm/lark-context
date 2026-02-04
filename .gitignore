@@ -5,3 +5,6 @@ dist
 .DS_Store
 coverage
 data/
+opencode/tools/*.d.ts
+opencode/tools/*.js
+opencode/tools/*.map
