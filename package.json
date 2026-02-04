@@ -10,17 +10,11 @@
     "start": "node dist/index.js",
     "lint": "biome check src opencode",
     "lint:fix": "biome check --write src opencode",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "check-env": "tsx src/check-env.ts",
     "pre-commit": "pnpm typecheck && pnpm lint"
   },
-  "keywords": [
-    "feishu",
-    "lark",
-    "bot",
-    "opencode",
-    "ai"
-  ],
+  "keywords": ["feishu", "lark", "bot", "opencode", "ai"],
   "author": "tzwm",
   "license": "Apache-2.0",
   "dependencies": {
