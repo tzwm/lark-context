@@ -1,5 +1,6 @@
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { AssistantMessage, Part } from '@opencode-ai/sdk';
+import { larkRequest } from '../../opencode/tools/lark_client.js';
 import type { OpenCodeService } from '../opencode/service.js';
 import type { SessionManager } from '../opencode/session-manager.js';
 import type { ChatInfo, MessageEvent } from '../types/index.js';
@@ -15,7 +16,10 @@ export class BotHandler {
   private processedEventIds = new Map<string, boolean>();
   private readonly MAX_PROCESSED_EVENTS = 10000;
   private commandHandler = new CommandHandler();
-  private botId: string;
+  private botOpenId: string | null = null;
+
+  private appId: string;
+  private appSecret: string;
 
   constructor(
     appId: string,
@@ -31,9 +35,31 @@ export class BotHandler {
     });
     this.openCodeService = openCodeService;
     this.sessionManager = sessionManager;
-    this.botId = appId;
+    this.appId = appId;
+    this.appSecret = appSecret;
 
     this.commandHandler.register(newSessionCommand);
+
+    // 从 API 获取 bot open_id
+    this.initializeBotOpenId();
+  }
+
+  private async initializeBotOpenId(): Promise<void> {
+    try {
+      // 使用 bot/v3/info API 获取 bot 信息
+      const response = (await larkRequest(this.appId, this.appSecret, '/bot/v3/info', {
+        method: 'GET',
+      })) as { code: number; msg: string; data?: { bot?: { open_id: string } } };
+
+      if (response.code === 0 && response.data?.bot?.open_id) {
+        this.botOpenId = response.data.bot.open_id;
+        console.log('[BotHandler] Bot open_id initialized from API:', this.botOpenId);
+      } else {
+        console.error('[BotHandler] Failed to get bot open_id from API:', response.msg);
+      }
+    } catch (error) {
+      console.error('[BotHandler] Failed to initialize bot open_id from API:', error);
+    }
   }
 
   async handleMessage(event: MessageEvent): Promise<void> {
@@ -78,14 +104,21 @@ export class BotHandler {
     const isPrivateChat = event.message.chat_type === 'p2p';
     console.log('[BotHandler] Is private chat:', isPrivateChat);
 
-    if (!isPrivateChat && !isBotMentioned(messageContent, this.botId)) {
+    // 使用已设置的 botOpenId
+    if (!this.botOpenId) {
+      console.log('[BotHandler] Bot open_id not set, skipping');
+      console.log('[BotHandler] Please set LARK_BOT_OPEN_ID environment variable');
+      return;
+    }
+
+    if (!isPrivateChat && !isBotMentioned(messageContent, this.botOpenId)) {
       console.log('[BotHandler] Bot not mentioned in group chat, skipping');
       return;
     }
 
     const query = isPrivateChat
       ? messageContent.text
-      : extractBotMention(messageContent.text, this.botId);
+      : extractBotMention(messageContent.text, messageContent.mentions, this.botOpenId);
     console.log('[BotHandler] Extracted query:', query);
 
     if (!query || query.trim() === '') {
