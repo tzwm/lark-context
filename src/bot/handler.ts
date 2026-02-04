@@ -106,8 +106,7 @@ export class BotHandler {
 
     // 使用已设置的 botOpenId
     if (!this.botOpenId) {
-      console.log('[BotHandler] Bot open_id not set, skipping');
-      console.log('[BotHandler] Please set LARK_BOT_OPEN_ID environment variable');
+      console.log('[BotHandler] Bot open_id not initialized, skipping');
       return;
     }
 
