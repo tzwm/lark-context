@@ -1,8 +1,9 @@
 import * as lark from '@larksuiteoapi/node-sdk';
-import type { AssistantMessage, Part } from '@opencode-ai/sdk';
 import { larkRequest } from '../lark_client.js';
-import type { OpenCodeService } from '../opencode/service.js';
-import type { SessionManager } from '../opencode/session-manager.js';
+import type { AssistantResponse } from '../pi/service.js';
+import type { Part } from '../pi/service.js';
+import type { PiService } from '../pi/service.js';
+import type { SessionManager } from '../pi/session-manager.js';
 import type { ChatInfo, MessageEvent } from '../types/index.js';
 import { CommandHandler } from './command-handler.js';
 import { newSessionCommand } from './commands/new-session.js';
@@ -11,7 +12,7 @@ import { extractBotMention, isBotMentioned, parseMessageContent } from './utils.
 
 export class BotHandler {
   private client: lark.Client;
-  private openCodeService: OpenCodeService;
+  private piService: PiService;
   private sessionManager: SessionManager;
   private processedEventIds = new Map<string, boolean>();
   private readonly MAX_PROCESSED_EVENTS = 10000;
@@ -24,7 +25,7 @@ export class BotHandler {
   constructor(
     appId: string,
     appSecret: string,
-    openCodeService: OpenCodeService,
+    piService: PiService,
     sessionManager: SessionManager,
   ) {
     this.client = new lark.Client({
@@ -33,7 +34,7 @@ export class BotHandler {
       appType: lark.AppType.SelfBuild,
       domain: lark.Domain.Feishu,
     });
-    this.openCodeService = openCodeService;
+    this.piService = piService;
     this.sessionManager = sessionManager;
     this.appId = appId;
     this.appSecret = appSecret;
@@ -151,7 +152,7 @@ export class BotHandler {
     }
 
     try {
-      await this.handleOpenCodeQuery(query, event.message.message_id, detailedChatInfo);
+      await this.handlePiQuery(query, event.message.message_id, detailedChatInfo);
     } catch (error) {
       console.error('[BotHandler] Error handling query:', error);
       await this.sendTextMessage(
@@ -161,18 +162,18 @@ export class BotHandler {
     }
   }
 
-  private async handleOpenCodeQuery(
+  private async handlePiQuery(
     query: string,
     userMessageId: string,
     chatInfo: ChatInfo,
   ): Promise<void> {
-    console.log('[BotHandler] Handling OpenCode query for chat:', chatInfo.chatId);
+    console.log('[BotHandler] Handling Pi query for chat:', chatInfo.chatId);
 
     let sessionId = await this.sessionManager.getOrCreateSession(chatInfo.chatId);
 
     if (!sessionId) {
-      console.log('[BotHandler] Creating new OpenCode session');
-      const newSessionId = await this.openCodeService.createSession(chatInfo);
+      console.log('[BotHandler] Creating new Pi session');
+      const newSessionId = await this.piService.createSession(chatInfo);
       await this.sessionManager.updateSessionId(chatInfo.chatId, newSessionId);
       sessionId = newSessionId;
     }
@@ -182,12 +183,12 @@ export class BotHandler {
     await this.addMessageReaction(userMessageId, 'Typing');
 
     try {
-      const response = await this.openCodeService.sendPrompt(sessionId, query);
+      const response = await this.piService.sendPrompt(sessionId, query);
 
       await this.sendResponseCard(chatInfo.chatId, response, userMessageId);
       console.log('[BotHandler] Response sent successfully');
     } catch (error) {
-      console.error('[BotHandler] OpenCode error:', error);
+      console.error('[BotHandler] Pi error:', error);
       const errorCard = {
         config: {
           wide_screen_mode: true,
@@ -324,7 +325,7 @@ export class BotHandler {
   private async sendResponseCard(
     chatId: string,
     response: {
-      info: AssistantMessage;
+      info: AssistantResponse['info'];
       parts: Part[];
     },
     replyMessageId: string,
@@ -432,8 +433,8 @@ export class BotHandler {
   }
 
   async createNewSession(chatInfo: ChatInfo): Promise<string> {
-    console.log('[BotHandler] Creating new OpenCode session for chat:', chatInfo.chatId);
-    const newSessionId = await this.openCodeService.createSession(chatInfo);
+    console.log('[BotHandler] Creating new Pi session for chat:', chatInfo.chatId);
+    const newSessionId = await this.piService.createSession(chatInfo);
     await this.sessionManager.updateSessionId(chatInfo.chatId, newSessionId);
     console.log('[BotHandler] New session created:', newSessionId);
     return newSessionId;

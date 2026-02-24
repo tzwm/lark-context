@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import { Bot } from './bot/index.js';
-import { OpenCodeService } from './opencode/service.js';
-import { SessionManager } from './opencode/session-manager.js';
+import { PiService } from './pi/service.js';
+import { SessionManager } from './pi/session-manager.js';
 
-const requiredEnvVars = ['LARK_APP_ID', 'LARK_APP_SECRET', 'DATA_PATH', 'OPENCODE_HOST'];
+const requiredEnvVars = ['LARK_APP_ID', 'LARK_APP_SECRET', 'DATA_PATH'];
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`Missing required environment variable: ${envVar}`);
@@ -12,25 +12,17 @@ for (const envVar of requiredEnvVars) {
 }
 
 const DATA_PATH = process.env.DATA_PATH as string;
-const OPENCODE_HOST = process.env.OPENCODE_HOST as string;
-const OPENCODE_USERNAME = process.env.OPENCODE_SERVER_USERNAME;
-const OPENCODE_PASSWORD = process.env.OPENCODE_SERVER_PASSWORD;
 
-console.log('[Init] Initializing OpenCode service...');
-const openCodeService = new OpenCodeService({
-  host: OPENCODE_HOST,
-  dataPath: DATA_PATH,
-  username: OPENCODE_USERNAME,
-  password: OPENCODE_PASSWORD,
-});
+console.log('[Init] Initializing Pi service...');
+const piService = new PiService(DATA_PATH);
 
-console.log('[Init] Checking OpenCode server health...');
-const isHealthy = await openCodeService.healthCheck();
+console.log('[Init] Checking Pi health...');
+const isHealthy = await piService.healthCheck();
 if (!isHealthy) {
-  console.error('[Init] OpenCode server is not healthy. Exiting.');
-  process.exit(1);
+  console.error('[Init] Pi has no available models configured. Continuing anyway but may fail.');
+} else {
+  console.log('[Init] Pi is healthy');
 }
-console.log('[Init] OpenCode server is healthy');
 
 console.log('[Init] Initializing session manager...');
 const sessionManager = new SessionManager(DATA_PATH);
@@ -40,7 +32,7 @@ console.log('[Init] Session manager initialized');
 const bot = new Bot({
   appId: process.env.LARK_APP_ID as string,
   appSecret: process.env.LARK_APP_SECRET as string,
-  openCodeService,
+  piService,
   sessionManager,
 });
 

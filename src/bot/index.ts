@@ -1,6 +1,6 @@
 import * as lark from '@larksuiteoapi/node-sdk';
-import type { OpenCodeService } from '../opencode/service.js';
-import type { SessionManager } from '../opencode/session-manager.js';
+import type { PiService } from '../pi/service.js';
+import type { SessionManager } from '../pi/session-manager.js';
 import type { MessageEvent } from '../types/index.js';
 import { BotHandler } from './handler.js';
 
@@ -12,13 +12,13 @@ export class Bot {
   constructor(config: {
     appId: string;
     appSecret: string;
-    openCodeService: OpenCodeService;
+    piService: PiService;
     sessionManager: SessionManager;
   }) {
     this.handler = new BotHandler(
       config.appId,
       config.appSecret,
-      config.openCodeService,
+      config.piService,
       config.sessionManager,
     );
 

@@ -1,9 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: lark-context-deployment
-  labels:
-    app: lark-context
+  name: lark-context
 spec:
   replicas: 1
   selector:
@@ -14,64 +12,62 @@ spec:
       labels:
         app: lark-context
     spec:
-      containers:
-      - name: opencode
-        image: lark-context:latest
-        imagePullPolicy: IfNotPresent
-        workingDir: /app/data
-        command: ["opencode", "serve", "--port", "4096"]
-        ports:
-        - containerPort: 4096
-          name: opencode
-        envFrom:
-        - secretRef:
-            name: lark-context-secrets
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "2000m"
-        volumeMounts:
-        - name: data
-          mountPath: /app/data
-      - name: bot
-        image: lark-context:latest
-        imagePullPolicy: IfNotPresent
-        command: ["node", "dist/index.js"]
-        ports:
-        - containerPort: 3000
-          name: http
-        env:
-        - name: OPENCODE_HOST
-          value: "http://localhost:4096"
-        envFrom:
-        - secretRef:
-            name: lark-context-secrets
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "1000m"
-        volumeMounts:
-        - name: data
-          mountPath: /app/data
       volumes:
-      - name: data
-        emptyDir: {}
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: lark-context-data
+        - name: pi-config-volume
+          persistentVolumeClaim:
+            claimName: pi-config
+      containers:
+        - name: bot
+          image: lark-context:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: LARK_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lark-context-secret
+                  key: LARK_APP_ID
+            - name: LARK_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lark-context-secret
+                  key: LARK_APP_SECRET
+            - name: DATA_PATH
+              value: /app/data
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
+            - name: pi-config-volume
+              mountPath: /root/.pi/agent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
 ---
 apiVersion: v1
-kind: Service
+kind: PersistentVolumeClaim
 metadata:
-  name: bot
+  name: lark-context-data
 spec:
-  selector:
-    app: lark-context
-  ports:
-  - port: 3000
-    targetPort: 3000
-    name: http
-  type: ClusterIP
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pi-config
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

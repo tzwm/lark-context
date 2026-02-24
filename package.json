@@ -1,26 +1,34 @@
 {
   "name": "lark-context",
   "version": "1.0.0",
-  "description": "Feishu bot with OpenCode AI integration",
+  "description": "Feishu bot with Pi AI coding agent integration",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "biome check src opencode",
-    "lint:fix": "biome check --write src opencode",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "check-env": "tsx src/check-env.ts",
     "pre-commit": "pnpm typecheck && pnpm lint"
   },
-  "keywords": ["feishu", "lark", "bot", "opencode", "ai"],
+  "keywords": [
+    "feishu",
+    "lark",
+    "bot",
+    
+    "ai"
+  ],
   "author": "tzwm",
   "license": "Apache-2.0",
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.24.0",
-    "@opencode-ai/plugin": "^1.1.36",
-    "@opencode-ai/sdk": "^1.1.36",
+    "@mariozechner/pi-agent-core": "^0.54.2",
+    "@mariozechner/pi-ai": "^0.54.2",
+    "@mariozechner/pi-coding-agent": "^0.54.2",
+    "@modelcontextprotocol/sdk": "^1.27.0",
     "dotenv": "^16.4.5",
     "zod": "^4.3.6"
   },

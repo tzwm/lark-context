@@ -1,15 +1,15 @@
 # Lark Context Bot
 
-飞书(Feishu/Lark) Bot 集成 OpenCode AI 编程助手，为团队提供智能对话和飞书文档访问能力。
+飞书(Feishu/Lark) Bot 集成 Pi AI 编程助手，为团队提供智能对话和飞书文档访问能力。
 
 ## 功能特性
 
-- **AI 对话**: 每个飞书群聊/私聊对应独立的 OpenCode session，支持上下文记忆
+- **AI 对话**: 每个飞书群聊/私聊对应独立的 Pi session，支持上下文记忆
 - **多种触发方式**:
   - 群聊中 @bot 触发 AI 响应
   - 私聊中直接发送消息即可触发
 - **命令系统**: 支持 `/new` 等命令创建新会话
-- **飞书文档工具**: OpenCode 可访问飞书消息历史、文档、Wiki、多维表格等内容
+- **飞书文档工具**: Pi 可访问飞书消息历史、文档、Wiki、多维表格等内容
 - **自动会话管理**: 支持会话持久化、自动清理过期会话
 - **实时消息更新**: 使用飞书卡片消息展示 AI 回复，包含思考过程、工具调用结果和 Token 统计
 
@@ -26,23 +26,16 @@ lark-context/
 │   │   │   └── new-session.ts    # /new 命令 - 创建新会话
 │   │   ├── message-template.ts   # 飞书卡片消息模板
 │   │   └── utils.ts              # 消息解析工具
-│   ├── opencode/                 # OpenCode 集成
-│   │   ├── service.ts            # OpenCode API 封装
+│   ├── pi/                       # Pi 集成
+│   │   ├── service.ts            # Pi API 封装
 │   │   └── session-manager.ts    # Session 管理（持久化到文件）
 │   ├── types/                    # TypeScript 类型定义
 │   │   └── index.ts
 │   ├── index.ts                  # 应用入口
 │   └── check-env.ts              # 环境变量检查工具
-├── opencode/                     # OpenCode 配置和工具
-│   ├── package.json              # OpenCode 插件依赖
-│   └── tools/                    # OpenCode 自定义工具
-│       ├── lark_client.ts        # 飞书 API 客户端（Token 管理）
-│       ├── lark_list_messages.ts # 获取飞书消息历史
-│       ├── lark_docx_get.ts      # 获取飞书 Docx 文档
-│       ├── lark_wiki_get.ts      # 获取飞书 Wiki 节点
-│       └── lark_bitable_get.ts   # 获取飞书多维表格
 ├── data/                         # 数据目录（不提交到 git）
-│   └── sessions.json             # chat-session 映射持久化文件
+│   ├── sessions.json             # chat-session 映射持久化文件
+│   └── pi-sessions/              # Pi 会话持久化目录
 ├── k8s/                          # Kubernetes 部署配置
 │   ├── k8s-deployment.yaml       # Deployment 和 Service
 │   └── k8s-secret.yaml           # Secret 配置模板
@@ -68,16 +61,11 @@ cp .env.example .env
 LARK_APP_ID=your_app_id
 LARK_APP_SECRET=your_app_secret
 
-# OpenCode 配置（必需）
-OPENCODE_HOST=http://localhost:4096
-
-# OpenCode 认证（可选，如果启用了 Basic Auth）
-OPENCODE_SERVER_USERNAME=opencode
-OPENCODE_SERVER_PASSWORD=your-password
-
 # 数据路径（必需）
 DATA_PATH=./data
 ```
+
+Pi 配置请参考 [Pi 官方文档](https://github.com/badlogic/pi-mono)，API 密钥等配置会自动读取 `~/.pi/agent/` 目录下的配置。
 
 ## 本地开发
 
@@ -87,15 +75,10 @@ DATA_PATH=./data
 pnpm install
 ```
 
-### 2. 启动 OpenCode Server
-
-```bash
-opencode serve --port 4096
-```
+### 2. 配置 Pi
+确保你本地已经安装并配置好 Pi 环境，添加了可用的模型 API 密钥。
 
 ### 3. 启动 Bot
-
-在另一个终端窗口中：
 
 ```bash
 pnpm dev
@@ -114,9 +97,9 @@ docker build -t lark-context .
 ```bash
 docker run -d \
   -p 3000:3000 \
-  -p 4096:4096 \
   --env-file .env \
   -v $(pwd)/data:/app/data \
+  -v ~/.pi/agent:/root/.pi/agent \
   lark-context
 ```
 
@@ -130,7 +113,6 @@ docker run -d \
 stringData:
   LARK_APP_ID: "your_actual_app_id"
   LARK_APP_SECRET: "your_actual_app_secret"
-  OPENCODE_SERVER_PASSWORD: "your_actual_password"
 ```
 
 ### 2. 部署到集群
@@ -160,23 +142,7 @@ kubectl apply -f k8s/k8s-deployment.yaml
 
 ### 可用命令
 
-- `/new` - 创建新的 OpenCode 会话（清除上下文记忆）
-
-### 飞书文档工具
-
-OpenCode 可以自动调用以下工具访问飞书内容：
-
-| 工具 | 功能 |
-|------|------|
-| `lark_list_messages` | 获取飞书消息历史 |
-| `lark_docx_get` | 获取飞书 Docx 文档内容 |
-| `lark_wiki_get` | 获取飞书 Wiki 节点信息 |
-| `lark_bitable_get` | 获取飞书多维表格信息 |
-
-使用示例：
-- "帮我总结一下这个文档 https://xxx.feishu.cn/docx/xxx"
-- "查看一下这个 Wiki 页面 https://xxx.feishu.cn/wiki/xxx"
-- "获取这个群聊最近的 50 条消息"
+- `/new` - 创建新的 Pi 会话（清除上下文记忆）
 
 ## 开发
 
@@ -211,7 +177,7 @@ pnpm pre-commit
 - **Package Manager**: pnpm
 - **Linter**: Biome
 - **飞书 SDK**: @larksuiteoapi/node-sdk
-- **OpenCode SDK**: @opencode-ai/sdk, @opencode-ai/plugin
+- **AI SDK**: @mariozechner/pi-coding-agent
 
 ## 许可证
 

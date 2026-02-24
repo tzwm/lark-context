@@ -21,12 +21,6 @@ export interface SessionMapping {
   lastUsed: string;
 }
 
-export interface OpenCodeConfig {
-  host: string;
-  dataPath: string;
-  username?: string;
-  password?: string;
-}
 
 export interface ChatInfo {
   chatId: string;
