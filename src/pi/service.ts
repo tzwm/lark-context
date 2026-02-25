@@ -34,8 +34,12 @@ export type Part =
 
 interface ActiveSession {
   session: AgentSession;
-  isProcessing: boolean;
   unsubscribe: () => void;
+  pendingResolvers: Array<{
+    startTime: number;
+    resolve: (response: AssistantResponse) => void;
+    reject: (error: Error) => void;
+  }>;
 }
 
 export class PiService {
@@ -106,66 +110,93 @@ export class PiService {
         modelRegistry: this.modelRegistry,
       });
 
-      const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
-        if (event.type === 'turn_end') {
-          console.log('[PiService] turn_end event received');
-        }
-      });
-
-      active = { session, isProcessing: false, unsubscribe };
+      active = {
+        session,
+        unsubscribe: () => {},
+        pendingResolvers: [],
+      };
       this.activeSessions.set(sessionId, active);
     }
 
-    if (active.isProcessing) {
-      throw new Error('Session is busy, please try again later.');
-    }
-
-    active.isProcessing = true;
     const startTime = Date.now();
-    const parts: Part[] = [];
-    let currentAssistantMessage: AssistantMessage | null = null;
-    let turnToolResults: ToolResultMessage[] = [];
-    let resolveProcessing: () => void;
+    const pendingResolvers = active.pendingResolvers;
 
-    const processingPromise = new Promise<void>(resolve => {
-      resolveProcessing = resolve;
+    // 创建一个 Promise 来等待响应
+    const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
+      pendingResolvers.push({ startTime, resolve, reject });
     });
 
-    // 设置消息收集订阅
-    const messageUnsubscribe = active.session.subscribe((event: AgentSessionEvent) => {
-      if (event.type === 'turn_end') {
-        if (event.message.role === 'assistant') {
-          currentAssistantMessage = event.message as unknown as AssistantMessage;
+    // 设置事件监听（只设置一次）
+    if (!active.unsubscribe || active.unsubscribe === (() => {})) {
+      const unsubscribe = active.session.subscribe((event: AgentSessionEvent) => {
+        if (event.type === 'turn_end') {
+          // 获取下一个等待的 resolver
+          const resolver = pendingResolvers.shift();
+          if (!resolver) {
+            console.warn('[PiService] turn_end received but no pending resolver');
+            return;
+          }
+
+          if (event.message.role === 'assistant') {
+            const assistantMessage = event.message as unknown as AssistantMessage;
+            const toolResults = event.toolResults as unknown as ToolResultMessage[];
+
+            const parts = this.extractParts(assistantMessage, toolResults);
+
+            resolver.resolve({
+              info: {
+                // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+                modelID: (assistantMessage as any).model,
+                tokens: {
+                  // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+                  input: (assistantMessage as any).usage.input,
+                  // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+                  output: (assistantMessage as any).usage.output,
+                },
+                time: {
+                  created: resolver.startTime,
+                  completed: Date.now(),
+                },
+              },
+              parts,
+            });
+          } else {
+            resolver.reject(new Error('Expected assistant message'));
+          }
         }
-        turnToolResults = turnToolResults.concat(
-          event.toolResults as unknown as ToolResultMessage[],
-        );
-        resolveProcessing();
-      }
-    });
+      });
 
-    try {
+      active.unsubscribe = unsubscribe;
+    }
+
+    // 根据是否正在 streaming 决定使用 prompt 还是 followUp
+    if (active.session.isStreaming) {
+      console.log('[PiService] Session is streaming, using followUp');
+      await active.session.followUp(text);
+    } else {
+      console.log('[PiService] Session is idle, using prompt');
       await active.session.prompt(text);
-      // 等待处理完成
-      await processingPromise;
-    } finally {
-      messageUnsubscribe();
-      active.isProcessing = false;
     }
 
-    if (!currentAssistantMessage) {
-      throw new Error('No response from Pi agent.');
-    }
+    // 等待响应
+    return responsePromise;
+  }
+
+  private extractParts(
+    assistantMessage: AssistantMessage,
+    toolResults: ToolResultMessage[],
+  ): Part[] {
+    const parts: Part[] = [];
 
     // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-    for (const content of (currentAssistantMessage as any).content) {
+    for (const content of (assistantMessage as any).content) {
       if (content.type === 'text') {
         parts.push({ type: 'text', text: content.text });
       } else if (content.type === 'thinking') {
         parts.push({ type: 'reasoning', text: content.thinking });
       } else if (content.type === 'toolCall') {
         const toolCall = content as unknown as ToolCall;
-        const result = turnToolResults.find(r => r.toolCallId === toolCall.id);
+        const result = toolResults.find(r => r.toolCallId === toolCall.id);
         const outputTexts = result?.content
           .filter(c => c.type === 'text')
           .map(c => c.text)
@@ -183,24 +214,6 @@ export class PiService {
       }
     }
 
-    return {
-      info: {
-        // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-        modelID: (currentAssistantMessage as any).model,
-        tokens: {
-          // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-          input: (currentAssistantMessage as any).usage.input,
-          // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-          output: (currentAssistantMessage as any).usage.output,
-        },
-        time: {
-          created: startTime,
-          completed: Date.now(),
-        },
-      },
-      parts,
-    };
+    return parts;
   }
-
-
 }
