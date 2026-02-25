@@ -116,10 +116,20 @@ export class PiService {
       this.activeSessions.set(sessionId, active);
     }
 
+    if (active.isProcessing) {
+      throw new Error('Session is busy, please try again later.');
+    }
+
+    active.isProcessing = true;
     const startTime = Date.now();
     const parts: Part[] = [];
     let currentAssistantMessage: AssistantMessage | null = null;
     let turnToolResults: ToolResultMessage[] = [];
+    let resolveProcessing: () => void;
+
+    const processingPromise = new Promise<void>(resolve => {
+      resolveProcessing = resolve;
+    });
 
     // 设置消息收集订阅
     const messageUnsubscribe = active.session.subscribe((event: AgentSessionEvent) => {
@@ -130,24 +140,14 @@ export class PiService {
         turnToolResults = turnToolResults.concat(
           event.toolResults as unknown as ToolResultMessage[],
         );
+        resolveProcessing();
       }
     });
 
     try {
-      if (active.isProcessing) {
-        // 会话忙碌，使用 followUp 排队
-        console.log('[PiService] Session is busy, using followUp to queue message');
-        active.isProcessing = true;
-        await active.session.followUp(text);
-      } else {
-        // 会话空闲，直接 prompt
-        console.log('[PiService] Session is idle, using prompt');
-        active.isProcessing = true;
-        await active.session.prompt(text);
-      }
-
-      // 等待处理完成（通过轮询检查 isProcessing 状态）
-      await this.waitForProcessingComplete(active);
+      await active.session.prompt(text);
+      // 等待处理完成
+      await processingPromise;
     } finally {
       messageUnsubscribe();
       active.isProcessing = false;
@@ -202,23 +202,5 @@ export class PiService {
     };
   }
 
-  /**
-   * 等待会话处理完成
-   * 通过轮询检查是否还有未完成的 turn
-   */
-  private async waitForProcessingComplete(
-    active: ActiveSession,
-    timeoutMs = 300000,
-  ): Promise<void> {
-    const startTime = Date.now();
 
-    while (active.isProcessing) {
-      if (Date.now() - startTime > timeoutMs) {
-        console.warn('[PiService] Processing timeout, forcing completion');
-        break;
-      }
-      // 等待一小段时间后重试
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
 }
