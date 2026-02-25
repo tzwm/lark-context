@@ -68,7 +68,9 @@ export class PiService {
   async createSession(chatInfo: ChatInfo): Promise<string> {
     const isPrivateChat = chatInfo.chatType === 'p2p';
     const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
-    let systemPrompt = `You are an AI assistant integrated with Feishu/Lark.\nYou are working in a collaborative environment. Be helpful, concise, and provide clear answers.\n\nCurrent Context:\n- Chat Type: ${chatTypeInfo}\n- Chat ID: ${chatInfo.chatId}`;
+    const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
+
+    let systemPrompt = `You are an AI assistant integrated with Feishu/Lark.\nYou are working in a collaborative environment. Be helpful, concise, and provide clear answers.\n\nCurrent Context:\n- Chat Type: ${chatTypeInfo}\n- Chat ID: ${chatInfo.chatId}\n- Working Directory: ${workspacePath}`;
 
     if (chatInfo.chatName) {
       systemPrompt += `\n- Chat Name: ${chatInfo.chatName}`;
@@ -84,6 +86,7 @@ export class PiService {
     }
 
     const { session } = await createAgentSession({
+      cwd: workspacePath,
       sessionManager: SessionManager.create(this.piSessionsPath),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
@@ -94,7 +97,9 @@ export class PiService {
   }
 
   async sendPrompt(sessionId: string, text: string): Promise<AssistantResponse> {
+    const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
     const { session } = await createAgentSession({
+      cwd: workspacePath,
       sessionManager: SessionManager.open(sessionId),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
