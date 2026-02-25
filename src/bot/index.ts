@@ -25,9 +25,12 @@ export class Bot {
     this.eventDispatcher = new lark.EventDispatcher({
       encryptKey: undefined,
     }).register({
-      'im.message.receive_v1': async data => {
+      'im.message.receive_v1': data => {
         console.log('[DEBUG] Received event:', JSON.stringify(data, null, 2));
-        await this.handler.handleMessage(data as unknown as MessageEvent);
+        // 异步处理消息，避免阻塞事件ACK导致飞书重试
+        this.handler.handleMessage(data as unknown as MessageEvent).catch(error => {
+          console.error('[Event] Failed to handle message:', error);
+        });
       },
     });
 
