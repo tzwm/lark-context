@@ -25,6 +25,7 @@ export type Part =
   | {
       type: 'tool';
       tool: string;
+      arguments: Record<string, unknown>;
       state: {
         status: 'pending' | 'running' | 'completed' | 'error';
         output?: string;
@@ -217,6 +218,7 @@ export class PiService {
         parts.push({
           type: 'tool',
           tool: toolCall.name,
+          arguments: toolCall.arguments,
           state: {
             status: result?.isError ? 'error' : 'completed',
             output: result?.isError ? undefined : outputTexts,

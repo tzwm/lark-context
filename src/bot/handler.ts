@@ -348,19 +348,16 @@ export class BotHandler {
     for (const part of response.parts) {
       if (part.type === 'text' && part.text) {
         body += `${part.text}\n\n`;
-      } else if (part.type === 'tool') {
-        body += `🔧 **Tool**: ${part.tool}\n`;
-        body += `Status: ${part.state?.status}\n`;
-        if (part.state?.status === 'completed' && part.state?.output) {
-          body += `${part.state.output}\n\n`;
-        } else if (part.state?.status === 'error' && part.state?.error) {
-          body += `Error: ${part.state.error}\n\n`;
-        }
-      } else if (part.type === 'file') {
-        body += `📄 File: ${part.filename || part.url}\n\n`;
       } else if (part.type === 'reasoning' && part.text) {
         thinking += `${part.text}\n\n`;
+      } else if (part.type === 'tool') {
+        const status = part.state?.status === 'completed' ? '✓' : part.state?.status === 'error' ? '✗' : '...';
+        const args = Object.entries(part.arguments || {})
+          .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+          .join(', ');
+        thinking += `[${status} ${part.tool}(${args})]\n`;
       }
+      // 忽略 file 类型
     }
 
     // 从 body 中提取 image keys，并替换为图1、图2等描述
