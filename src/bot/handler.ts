@@ -185,6 +185,7 @@ export class BotHandler {
 
     let sessionId = await this.sessionManager.getOrCreateSession(threadId);
 
+    const isFirstMessage = !sessionId;
     if (!sessionId) {
       console.log('[BotHandler] Creating new Pi session');
       const newSessionId = await this.piService.createSession(chatInfo);
@@ -192,13 +193,13 @@ export class BotHandler {
       sessionId = newSessionId;
     }
 
-    console.log('[BotHandler] Using session:', sessionId);
+    console.log('[BotHandler] Using session:', sessionId, 'isFirstMessage:', isFirstMessage);
 
     await this.addMessageReaction(userMessageId, 'Typing');
 
     try {
       // 构建带上下文的查询
-      const enrichedQuery = this.buildEnrichedQuery(query, chatInfo);
+      const enrichedQuery = this.buildEnrichedQuery(query, chatInfo, isFirstMessage);
       const response = await this.piService.sendPrompt(sessionId, enrichedQuery);
 
       await this.sendResponseCard(chatInfo.chatId, response, userMessageId);
@@ -617,22 +618,21 @@ export class BotHandler {
     return newSessionId;
   }
 
-  private buildEnrichedQuery(query: string, chatInfo: ChatInfo): string {
+  private buildEnrichedQuery(query: string, chatInfo: ChatInfo, isFirstMessage: boolean): string {
     const prefixParts: string[] = [];
 
-    // Chat 上下文（只在私聊时添加，群聊已经有 chat name）
-    if (chatInfo.chatType === 'p2p') {
-      prefixParts.push(`[Chat: ${chatInfo.chatId}]`);
-    } else if (chatInfo.chatName) {
-      prefixParts.push(`[Chat: ${chatInfo.chatName}]`);
+    // Chat 上下文（只在第一条消息添加）
+    if (isFirstMessage) {
+      const chatInfoPart = `[Chat: ${chatInfo.chatId}${chatInfo.chatName ? ` (${chatInfo.chatName})` : ''}]`;
+      prefixParts.push(chatInfoPart);
     }
 
-    // 发送人信息
+    // 发送人信息（每条消息都添加）
     if (chatInfo.senderName) {
       prefixParts.push(`[From: ${chatInfo.senderName}]`);
     }
 
-    // @信息
+    // @信息（每条消息都添加）
     if (chatInfo.mentions && chatInfo.mentions.length > 0) {
       prefixParts.push(`[Mentions: ${chatInfo.mentions.join(', ')}]`);
     }
