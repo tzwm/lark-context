@@ -43,7 +43,6 @@ interface ActiveSession {
   session: AgentSession;
   pendingQueue: PendingRequest[];
   chatContextInjected: boolean;
-  pendingChatInfo?: ChatInfo;
 }
 
 export class PiService {
@@ -79,37 +78,6 @@ export class PiService {
     });
 
     return session.sessionId;
-  }
-
-  private async injectChatContext(session: AgentSession, chatInfo: ChatInfo): Promise<void> {
-    const isPrivateChat = chatInfo.chatType === 'p2p';
-    const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
-
-    const contextMessage = {
-      customType: 'feishu_chat_context',
-      content: `## Current Feishu Chat Context
-
-**Chat Information**
-- Chat Type: ${chatTypeInfo}
-- Chat ID: \`${chatInfo.chatId}\`
-${chatInfo.chatName ? `- Chat Name: \`${chatInfo.chatName}\`` : ''}
-
-**System Rules**
-- You are an AI assistant integrated with Feishu/Lark
-- Be helpful, concise, and provide clear answers
-- Respond in the same language as the user's message
-- Each user message will include sender info in the format: [From: 昵称]`,
-      display: 'hidden',
-      details: chatInfo,
-    };
-
-    // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-    await session.sendCustomMessage(contextMessage as any, {
-      triggerTurn: false,
-      deliverAs: 'nextTurn',
-    });
-
-    console.log('[PiService] Chat context injected for chat:', chatInfo.chatId);
   }
 
   private async getOrCreateSession(sessionId: string): Promise<ActiveSession> {
@@ -210,16 +178,16 @@ ${chatInfo.chatName ? `- Chat Name: \`${chatInfo.chatName}\`` : ''}
   ): Promise<AssistantResponse> {
     const active = await this.getOrCreateSession(sessionId);
 
-    // 如果是第一次发送，先注入 Chat 上下文
-    if (!active.chatContextInjected && chatInfo) {
-      await this.injectChatContext(active.session, chatInfo);
-      active.chatContextInjected = true;
-    }
-
     const startTime = Date.now();
 
-    // 构建带前缀的消息
-    const enrichedText = this.buildEnrichedMessage(text, messageContext);
+    // 构建带前缀的消息（包含 Chat 上下文和发送人信息）
+    const enrichedText = this.buildEnrichedMessage(
+      text,
+      messageContext,
+      chatInfo,
+      !active.chatContextInjected,
+    );
+    active.chatContextInjected = true;
 
     const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
       active.pendingQueue.push({ startTime, resolve, reject });
@@ -247,18 +215,28 @@ ${chatInfo.chatName ? `- Chat Name: \`${chatInfo.chatName}\`` : ''}
       messageId?: string;
       mentions?: string[];
     },
+    chatInfo?: ChatInfo,
+    isFirstMessage?: boolean,
   ): string {
-    if (!context) return text;
-
     const prefixParts: string[] = [];
 
+    // 第一次消息：添加 Chat 上下文
+    if (isFirstMessage && chatInfo) {
+      const isPrivateChat = chatInfo.chatType === 'p2p';
+      const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
+
+      prefixParts.push(
+        `[Feishu Context: Chat=${chatInfo.chatId}, Type=${chatTypeInfo}${chatInfo.chatName ? `, Name=${chatInfo.chatName}` : ''}]`,
+      );
+    }
+
     // 发送人信息
-    if (context.senderName) {
+    if (context?.senderName) {
       prefixParts.push(`[From: ${context.senderName}]`);
     }
 
     // @信息
-    if (context.mentions && context.mentions.length > 0) {
+    if (context?.mentions && context.mentions.length > 0) {
       prefixParts.push(`[Mentions: ${context.mentions.join(', ')}]`);
     }
 
