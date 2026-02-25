@@ -3,12 +3,15 @@ FROM node:24-bookworm-slim
 # 安装系统基础工具
 RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
+  openssh-client \
   ca-certificates \
   vim \
   tree \
   curl \
   wget \
   procps \
+  less \
+  jq \
   && rm -rf /var/lib/apt/lists/*
 
 # 安装 fd 和 ripgrep（使用 apt）
