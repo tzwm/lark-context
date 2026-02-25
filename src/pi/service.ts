@@ -1,5 +1,3 @@
-import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
 import type { AssistantMessage, ToolCall, ToolResultMessage } from '@mariozechner/pi-ai';
 import {
   type AgentSessionEvent,
@@ -40,9 +38,8 @@ export class PiService {
   private modelRegistry: ModelRegistry;
   private settingsManager: SettingsManager;
   private resourceLoader: DefaultResourceLoader;
-  private sessionDir: string;
 
-  constructor(dataPath: string) {
+  constructor() {
     this.authStorage = AuthStorage.create();
     this.modelRegistry = new ModelRegistry(this.authStorage);
     this.settingsManager = SettingsManager.create();
@@ -50,9 +47,6 @@ export class PiService {
       cwd: process.cwd(),
       settingsManager: this.settingsManager,
     });
-    this.sessionDir = path.join(dataPath, 'pi-sessions');
-    // 确保会话目录存在
-    fs.mkdir(this.sessionDir, { recursive: true }).catch(console.error);
   }
 
   async initialize(): Promise<void> {
@@ -88,7 +82,7 @@ export class PiService {
     }
 
     const { session } = await createAgentSession({
-      sessionManager: SessionManager.create(process.cwd(), this.sessionDir),
+      sessionManager: SessionManager.create(process.cwd()), // 不传第二个参数，使用默认路径 ~/.pi/agent/sessions
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
       resourceLoader: this.resourceLoader,

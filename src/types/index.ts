@@ -21,7 +21,6 @@ export interface SessionMapping {
   lastUsed: string;
 }
 
-
 export interface ChatInfo {
   chatId: string;
   chatType: string;
