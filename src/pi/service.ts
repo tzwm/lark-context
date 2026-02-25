@@ -183,24 +183,25 @@ export class PiService {
 
     const startTime = Date.now();
 
-    // 创建 Promise 来等待响应
+    // 将添加 resolver 和调用 prompt 都放在 Promise executor 中同步执行
     const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
+      // 先添加 resolver 到 queue
       active.pendingQueue.push({ startTime, resolve, reject });
+      console.log('[PiService] Added resolver to queue, length:', active.pendingQueue.length);
+
+      // 根据是否正在 streaming 决定使用 prompt 还是 followUp
+      if (active.session.isStreaming) {
+        console.log(
+          '[PiService] Session is streaming, using followUp, queue:',
+          active.pendingQueue.length,
+        );
+        active.session.followUp(text).catch(reject);
+      } else {
+        console.log('[PiService] Session is idle, using prompt');
+        active.session.prompt(text).catch(reject);
+      }
     });
 
-    // 根据是否正在 streaming 决定使用 prompt 还是 followUp
-    if (active.session.isStreaming) {
-      console.log(
-        '[PiService] Session is streaming, using followUp, queue:',
-        active.pendingQueue.length,
-      );
-      await active.session.followUp(text);
-    } else {
-      console.log('[PiService] Session is idle, using prompt');
-      await active.session.prompt(text);
-    }
-
-    // 等待响应
     return responsePromise;
   }
 
