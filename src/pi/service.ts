@@ -38,11 +38,13 @@ export class PiService {
   private modelRegistry: ModelRegistry;
   private settingsManager: SettingsManager;
   private resourceLoader: DefaultResourceLoader;
+  private piSessionsPath: string;
 
-  constructor() {
+  constructor(dataPath: string) {
     this.authStorage = AuthStorage.create();
     this.modelRegistry = new ModelRegistry(this.authStorage);
     this.settingsManager = SettingsManager.create();
+    this.piSessionsPath = `${dataPath}/pi-sessions`;
     this.resourceLoader = new DefaultResourceLoader({
       cwd: process.env.PI_WORKSPACE_PATH || process.cwd(),
       settingsManager: this.settingsManager,
@@ -81,9 +83,8 @@ export class PiService {
       }
     }
 
-    const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
     const { session } = await createAgentSession({
-      sessionManager: SessionManager.create(workspacePath),
+      sessionManager: SessionManager.create(this.piSessionsPath),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
       resourceLoader: this.resourceLoader,

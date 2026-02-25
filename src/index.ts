@@ -14,7 +14,7 @@ for (const envVar of requiredEnvVars) {
 const DATA_PATH = process.env.DATA_PATH as string;
 
 console.log('[Init] Initializing Pi service...');
-const piService = new PiService();
+const piService = new PiService(DATA_PATH);
 
 console.log('[Init] Checking Pi health...');
 const isHealthy = await piService.healthCheck();
