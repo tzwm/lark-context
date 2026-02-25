@@ -190,20 +190,23 @@ export class PiService {
     active.chatContextInjected = true;
 
     const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
+      // 添加 resolver 到 queue
       active.pendingQueue.push({ startTime, resolve, reject });
-    });
 
-    // 根据是否正在 streaming 决定使用 prompt 还是 followUp
-    if (active.session.isStreaming) {
-      console.log(
-        '[PiService] Session is streaming, using followUp, queue:',
-        active.pendingQueue.length,
-      );
-      await active.session.followUp(enrichedText);
-    } else {
-      console.log('[PiService] Session is idle, using prompt');
-      await active.session.prompt(enrichedText);
-    }
+      console.log('[PiService] Added resolver to queue, length:', active.pendingQueue.length);
+
+      // 根据是否正在 streaming 决定使用 prompt 还是 followUp
+      if (active.session.isStreaming) {
+        console.log(
+          '[PiService] Session is streaming, using followUp, queue:',
+          active.pendingQueue.length,
+        );
+        active.session.followUp(enrichedText).catch(reject);
+      } else {
+        console.log('[PiService] Session is idle, using prompt');
+        active.session.prompt(enrichedText).catch(reject);
+      }
+    });
 
     return responsePromise;
   }
