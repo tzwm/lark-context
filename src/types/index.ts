@@ -28,4 +28,9 @@ export interface ChatInfo {
   chatName?: string;
   senderId?: string;
   senderName?: string;
+  // 消息信息（用于每轮对话前缀）
+  messageId?: string;
+  threadId?: string;
+  eventId?: string;
+  mentions?: string[];
 }
