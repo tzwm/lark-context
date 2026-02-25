@@ -42,7 +42,6 @@ interface PendingRequest {
 interface ActiveSession {
   session: AgentSession;
   pendingQueue: PendingRequest[];
-  chatContextInjected: boolean;
 }
 
 export class PiService {
@@ -68,7 +67,24 @@ export class PiService {
   }
 
   async createSession(chatInfo: ChatInfo): Promise<string> {
+    const isPrivateChat = chatInfo.chatType === 'p2p';
+    const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
     const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
+
+    let systemPrompt = `You are an AI assistant integrated with Feishu/Lark.\nYou are working in a collaborative environment. Be helpful, concise, and provide clear answers.\n\nCurrent Context:\n- Chat Type: ${chatTypeInfo}\n- Chat ID: ${chatInfo.chatId}\n- Working Directory: ${workspacePath}`;
+
+    if (chatInfo.chatName) {
+      systemPrompt += `\n- Chat Name: ${chatInfo.chatName}`;
+    }
+
+    if (isPrivateChat) {
+      if (chatInfo.senderId) {
+        systemPrompt += `\n- User ID: ${chatInfo.senderId}`;
+      }
+      if (chatInfo.senderName) {
+        systemPrompt += `\n- User Name: ${chatInfo.senderName}`;
+      }
+    }
 
     const { session } = await createAgentSession({
       cwd: workspacePath,
@@ -99,7 +115,6 @@ export class PiService {
     const active: ActiveSession = {
       session,
       pendingQueue: [],
-      chatContextInjected: false,
     };
 
     // 先存入 map，再设置事件监听器
@@ -121,10 +136,7 @@ export class PiService {
 
     const resolver = active.pendingQueue.shift();
     if (!resolver) {
-      // 可能是 injectChatContext 触发的 agent_end，忽略
-      console.log(
-        '[PiService] agent_end received but no pending request (likely chat context injection)',
-      );
+      console.warn('[PiService] agent_end received but no pending request');
       return;
     }
 
@@ -166,86 +178,30 @@ export class PiService {
     }
   }
 
-  async sendPrompt(
-    sessionId: string,
-    text: string,
-    messageContext?: {
-      senderName?: string;
-      messageId?: string;
-      mentions?: string[];
-    },
-    chatInfo?: ChatInfo,
-  ): Promise<AssistantResponse> {
+  async sendPrompt(sessionId: string, text: string): Promise<AssistantResponse> {
     const active = await this.getOrCreateSession(sessionId);
 
     const startTime = Date.now();
 
-    // 构建带前缀的消息（包含 Chat 上下文和发送人信息）
-    const enrichedText = this.buildEnrichedMessage(
-      text,
-      messageContext,
-      chatInfo,
-      !active.chatContextInjected,
-    );
-    active.chatContextInjected = true;
-
+    // 创建 Promise 来等待响应
     const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
-      // 添加 resolver 到 queue
       active.pendingQueue.push({ startTime, resolve, reject });
-
-      console.log('[PiService] Added resolver to queue, length:', active.pendingQueue.length);
-
-      // 根据是否正在 streaming 决定使用 prompt 还是 followUp
-      if (active.session.isStreaming) {
-        console.log(
-          '[PiService] Session is streaming, using followUp, queue:',
-          active.pendingQueue.length,
-        );
-        active.session.followUp(enrichedText).catch(reject);
-      } else {
-        console.log('[PiService] Session is idle, using prompt');
-        active.session.prompt(enrichedText).catch(reject);
-      }
     });
 
-    return responsePromise;
-  }
-
-  private buildEnrichedMessage(
-    text: string,
-    context?: {
-      senderName?: string;
-      messageId?: string;
-      mentions?: string[];
-    },
-    chatInfo?: ChatInfo,
-    isFirstMessage?: boolean,
-  ): string {
-    const prefixParts: string[] = [];
-
-    // 第一次消息：添加 Chat 上下文
-    if (isFirstMessage && chatInfo) {
-      const isPrivateChat = chatInfo.chatType === 'p2p';
-      const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
-
-      prefixParts.push(
-        `[Feishu Context: Chat=${chatInfo.chatId}, Type=${chatTypeInfo}${chatInfo.chatName ? `, Name=${chatInfo.chatName}` : ''}]`,
+    // 根据是否正在 streaming 决定使用 prompt 还是 followUp
+    if (active.session.isStreaming) {
+      console.log(
+        '[PiService] Session is streaming, using followUp, queue:',
+        active.pendingQueue.length,
       );
+      await active.session.followUp(text);
+    } else {
+      console.log('[PiService] Session is idle, using prompt');
+      await active.session.prompt(text);
     }
 
-    // 发送人信息
-    if (context?.senderName) {
-      prefixParts.push(`[From: ${context.senderName}]`);
-    }
-
-    // @信息
-    if (context?.mentions && context.mentions.length > 0) {
-      prefixParts.push(`[Mentions: ${context.mentions.join(', ')}]`);
-    }
-
-    if (prefixParts.length === 0) return text;
-
-    return `${prefixParts.join(' ')}\n\n${text}`;
+    // 等待响应
+    return responsePromise;
   }
 
   private extractParts(
