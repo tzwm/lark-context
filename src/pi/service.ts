@@ -81,8 +81,9 @@ export class PiService {
       }
     }
 
+    const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
     const { session } = await createAgentSession({
-      sessionManager: SessionManager.create(process.cwd()), // 不传第二个参数，使用默认路径 ~/.pi/agent/sessions
+      sessionManager: SessionManager.create(workspacePath),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
       resourceLoader: this.resourceLoader,
@@ -123,6 +124,7 @@ export class PiService {
       throw new Error('No response from Pi agent.');
     }
 
+    // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
     for (const content of (currentAssistantMessage as any).content) {
       if (content.type === 'text') {
         parts.push({ type: 'text', text: content.text });
@@ -150,9 +152,12 @@ export class PiService {
 
     return {
       info: {
+        // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
         modelID: (currentAssistantMessage as any).model,
         tokens: {
+          // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
           input: (currentAssistantMessage as any).usage.input,
+          // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
           output: (currentAssistantMessage as any).usage.output,
         },
         time: {

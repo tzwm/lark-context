@@ -24,4 +24,5 @@ console.log(`   LARK_APP_ID: ${process.env.LARK_APP_ID?.substring(0, 8)}...`);
 console.log(`   LARK_APP_SECRET: ${process.env.LARK_APP_SECRET?.substring(0, 8)}...`);
 console.log(`   OPENCODE_HOST: ${process.env.OPENCODE_HOST || 'Not set'}`);
 console.log(`   DATA_PATH: ${process.env.DATA_PATH || './data'}`);
+console.log(`   PI_WORKSPACE_PATH: ${process.env.PI_WORKSPACE_PATH || 'Not set (uses cwd)'}`);
 console.log('\n✅ All checks passed! You can now run: pnpm dev');
