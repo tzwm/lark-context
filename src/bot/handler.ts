@@ -197,11 +197,16 @@ export class BotHandler {
     await this.addMessageReaction(userMessageId, 'Typing');
 
     try {
-      const response = await this.piService.sendPrompt(sessionId, query, {
-        senderName: chatInfo.senderName,
-        messageId: userMessageId,
-        mentions: chatInfo.mentions,
-      });
+      const response = await this.piService.sendPrompt(
+        sessionId,
+        query,
+        {
+          senderName: chatInfo.senderName,
+          messageId: userMessageId,
+          mentions: chatInfo.mentions,
+        },
+        chatInfo,
+      );
 
       await this.sendResponseCard(chatInfo.chatId, response, userMessageId);
       console.log('[BotHandler] Response sent successfully');

@@ -42,6 +42,8 @@ interface PendingRequest {
 interface ActiveSession {
   session: AgentSession;
   pendingQueue: PendingRequest[];
+  chatContextInjected: boolean;
+  pendingChatInfo?: ChatInfo;
 }
 
 export class PiService {
@@ -75,9 +77,6 @@ export class PiService {
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
     });
-
-    // 注入 Chat 上下文（只注入一次，利用 LLM cache）
-    await this.injectChatContext(session, chatInfo);
 
     return session.sessionId;
   }
@@ -132,6 +131,7 @@ ${chatInfo.chatName ? `- Chat Name: \`${chatInfo.chatName}\`` : ''}
     const active: ActiveSession = {
       session,
       pendingQueue: [],
+      chatContextInjected: false,
     };
 
     // 先存入 map，再设置事件监听器
@@ -153,7 +153,10 @@ ${chatInfo.chatName ? `- Chat Name: \`${chatInfo.chatName}\`` : ''}
 
     const resolver = active.pendingQueue.shift();
     if (!resolver) {
-      console.warn('[PiService] agent_end received but no pending request');
+      // 可能是 injectChatContext 触发的 agent_end，忽略
+      console.log(
+        '[PiService] agent_end received but no pending request (likely chat context injection)',
+      );
       return;
     }
 
@@ -203,8 +206,15 @@ ${chatInfo.chatName ? `- Chat Name: \`${chatInfo.chatName}\`` : ''}
       messageId?: string;
       mentions?: string[];
     },
+    chatInfo?: ChatInfo,
   ): Promise<AssistantResponse> {
     const active = await this.getOrCreateSession(sessionId);
+
+    // 如果是第一次发送，先注入 Chat 上下文
+    if (!active.chatContextInjected && chatInfo) {
+      await this.injectChatContext(active.session, chatInfo);
+      active.chatContextInjected = true;
+    }
 
     const startTime = Date.now();
 
