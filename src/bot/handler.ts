@@ -138,6 +138,10 @@ export class BotHandler {
 
     console.log('[BotHandler] Full event sender:', JSON.stringify(event.sender, null, 2));
 
+    // 使用 thread_id 作为会话标识，实现同一 thread 内的消息沿用同一 Pi session
+    const threadId = event.message.thread_id || event.message.message_id;
+    console.log('[BotHandler] Thread ID:', threadId);
+
     const basicChatInfo = {
       chatId: chat_id,
       chatType: event.message.chat_type,
@@ -152,7 +156,7 @@ export class BotHandler {
     }
 
     try {
-      await this.handlePiQuery(query, event.message.message_id, detailedChatInfo);
+      await this.handlePiQuery(query, event.message.message_id, threadId, detailedChatInfo);
     } catch (error) {
       console.error('[BotHandler] Error handling query:', error);
       await this.sendTextMessage(
@@ -165,16 +169,17 @@ export class BotHandler {
   private async handlePiQuery(
     query: string,
     userMessageId: string,
+    threadId: string,
     chatInfo: ChatInfo,
   ): Promise<void> {
-    console.log('[BotHandler] Handling Pi query for chat:', chatInfo.chatId);
+    console.log('[BotHandler] Handling Pi query for thread:', threadId);
 
-    let sessionId = await this.sessionManager.getOrCreateSession(chatInfo.chatId);
+    let sessionId = await this.sessionManager.getOrCreateSession(threadId);
 
     if (!sessionId) {
       console.log('[BotHandler] Creating new Pi session');
       const newSessionId = await this.piService.createSession(chatInfo);
-      await this.sessionManager.updateSessionId(chatInfo.chatId, newSessionId);
+      await this.sessionManager.updateSessionId(threadId, newSessionId);
       sessionId = newSessionId;
     }
 
@@ -432,10 +437,12 @@ export class BotHandler {
     await this.sendCard(chatId, card, replyMessageId);
   }
 
-  async createNewSession(chatInfo: ChatInfo): Promise<string> {
+  async createNewSession(chatInfo: ChatInfo, threadId?: string): Promise<string> {
     console.log('[BotHandler] Creating new Pi session for chat:', chatInfo.chatId);
     const newSessionId = await this.piService.createSession(chatInfo);
-    await this.sessionManager.updateSessionId(chatInfo.chatId, newSessionId);
+    // 如果不传 threadId，使用 chatId 作为 fallback（兼容旧逻辑）
+    const key = threadId || chatInfo.chatId;
+    await this.sessionManager.updateSessionId(key, newSessionId);
     console.log('[BotHandler] New session created:', newSessionId);
     return newSessionId;
   }

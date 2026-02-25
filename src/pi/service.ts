@@ -1,5 +1,6 @@
 import type { AssistantMessage, ToolCall, ToolResultMessage } from '@mariozechner/pi-ai';
 import {
+  type AgentSession,
   type AgentSessionEvent,
   AuthStorage,
   ModelRegistry,
@@ -31,10 +32,17 @@ export type Part =
       };
     };
 
+interface ActiveSession {
+  session: AgentSession;
+  isProcessing: boolean;
+  unsubscribe: () => void;
+}
+
 export class PiService {
   private authStorage: AuthStorage;
   private modelRegistry: ModelRegistry;
   private piSessionsPath: string;
+  private activeSessions = new Map<string, ActiveSession>();
 
   constructor(dataPath: string) {
     this.authStorage = AuthStorage.create();
@@ -84,20 +92,37 @@ export class PiService {
 
   async sendPrompt(sessionId: string, text: string): Promise<AssistantResponse> {
     const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
-    const { session } = await createAgentSession({
-      cwd: workspacePath,
-      sessionManager: SessionManager.open(sessionId),
-      authStorage: this.authStorage,
-      modelRegistry: this.modelRegistry,
-    });
+
+    // 获取或创建活跃会话
+    let active = this.activeSessions.get(sessionId);
+
+    if (!active) {
+      // 创建新会话
+      console.log('[PiService] Creating new active session:', sessionId);
+      const { session } = await createAgentSession({
+        cwd: workspacePath,
+        sessionManager: SessionManager.open(sessionId),
+        authStorage: this.authStorage,
+        modelRegistry: this.modelRegistry,
+      });
+
+      const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
+        if (event.type === 'turn_end') {
+          console.log('[PiService] turn_end event received');
+        }
+      });
+
+      active = { session, isProcessing: false, unsubscribe };
+      this.activeSessions.set(sessionId, active);
+    }
 
     const startTime = Date.now();
-
     const parts: Part[] = [];
     let currentAssistantMessage: AssistantMessage | null = null;
     let turnToolResults: ToolResultMessage[] = [];
 
-    const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
+    // 设置消息收集订阅
+    const messageUnsubscribe = active.session.subscribe((event: AgentSessionEvent) => {
       if (event.type === 'turn_end') {
         if (event.message.role === 'assistant') {
           currentAssistantMessage = event.message as unknown as AssistantMessage;
@@ -108,8 +133,25 @@ export class PiService {
       }
     });
 
-    await session.prompt(text);
-    unsubscribe();
+    try {
+      if (active.isProcessing) {
+        // 会话忙碌，使用 followUp 排队
+        console.log('[PiService] Session is busy, using followUp to queue message');
+        active.isProcessing = true;
+        await active.session.followUp(text);
+      } else {
+        // 会话空闲，直接 prompt
+        console.log('[PiService] Session is idle, using prompt');
+        active.isProcessing = true;
+        await active.session.prompt(text);
+      }
+
+      // 等待处理完成（通过轮询检查 isProcessing 状态）
+      await this.waitForProcessingComplete(active);
+    } finally {
+      messageUnsubscribe();
+      active.isProcessing = false;
+    }
 
     if (!currentAssistantMessage) {
       throw new Error('No response from Pi agent.');
@@ -158,5 +200,25 @@ export class PiService {
       },
       parts,
     };
+  }
+
+  /**
+   * 等待会话处理完成
+   * 通过轮询检查是否还有未完成的 turn
+   */
+  private async waitForProcessingComplete(
+    active: ActiveSession,
+    timeoutMs = 300000,
+  ): Promise<void> {
+    const startTime = Date.now();
+
+    while (active.isProcessing) {
+      if (Date.now() - startTime > timeoutMs) {
+        console.warn('[PiService] Processing timeout, forcing completion');
+        break;
+      }
+      // 等待一小段时间后重试
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
 }

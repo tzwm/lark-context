@@ -18,6 +18,7 @@ export type MessageContent = {
 
 export interface SessionMapping {
   sessionId: string;
+  threadId: string;
   lastUsed: string;
 }
 

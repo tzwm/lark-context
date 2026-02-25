@@ -39,38 +39,40 @@ export class SessionManager {
     }
   }
 
-  async getOrCreateSession(chatId: string): Promise<string> {
+  async getOrCreateSession(threadId: string): Promise<string> {
     await this.loadSessions();
 
-    const existing = this.sessions.get(chatId);
+    const existing = this.sessions.get(threadId);
     if (existing) {
-      console.log('[SessionManager] Found existing session for chat:', chatId);
-      await this.updateLastUsed(chatId);
+      console.log('[SessionManager] Found existing session for thread:', threadId);
+      await this.updateLastUsed(threadId);
       return existing.sessionId;
     }
 
-    console.log('[SessionManager] Creating new session for chat:', chatId);
+    console.log('[SessionManager] Creating new session for thread:', threadId);
     const newSession: SessionMapping = {
       sessionId: '',
+      threadId,
       lastUsed: new Date().toISOString(),
     };
 
-    this.sessions.set(chatId, newSession);
+    this.sessions.set(threadId, newSession);
     await this.saveSessions();
 
     return newSession.sessionId;
   }
 
-  async updateSessionId(chatId: string, sessionId: string): Promise<void> {
+  async updateSessionId(threadId: string, sessionId: string): Promise<void> {
     await this.loadSessions();
 
-    const existing = this.sessions.get(chatId);
+    const existing = this.sessions.get(threadId);
     if (existing) {
       existing.sessionId = sessionId;
       existing.lastUsed = new Date().toISOString();
     } else {
-      this.sessions.set(chatId, {
+      this.sessions.set(threadId, {
         sessionId,
+        threadId,
         lastUsed: new Date().toISOString(),
       });
     }
@@ -78,8 +80,8 @@ export class SessionManager {
     await this.saveSessions();
   }
 
-  async updateLastUsed(chatId: string): Promise<void> {
-    const session = this.sessions.get(chatId);
+  async updateLastUsed(threadId: string): Promise<void> {
+    const session = this.sessions.get(threadId);
     if (session) {
       session.lastUsed = new Date().toISOString();
       await this.saveSessions();
@@ -91,11 +93,11 @@ export class SessionManager {
     return Object.fromEntries(this.sessions);
   }
 
-  async deleteSession(chatId: string): Promise<void> {
+  async deleteSession(threadId: string): Promise<void> {
     await this.loadSessions();
-    this.sessions.delete(chatId);
+    this.sessions.delete(threadId);
     await this.saveSessions();
-    console.log('[SessionManager] Session deleted for chat:', chatId);
+    console.log('[SessionManager] Session deleted for thread:', threadId);
   }
 
   async cleanupOldSessions(days = 30): Promise<number> {
