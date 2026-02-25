@@ -11,9 +11,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   procps \
   && rm -rf /var/lib/apt/lists/*
 
-# 安装 fd 和 ripgrep（使用静态二进制）
-RUN curl -fsSL https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-x86_64-unknown-linux-musl.tar.gz | tar xz -C /usr/local/bin fd --strip-components=1 \
-  && curl -fsSL https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz | tar xz -C /usr/local/bin ripgrep-14.1.1-x86_64-unknown-linux-musl/rg --strip-components=1
+# 安装 fd 和 ripgrep（使用 cargo）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  rustc \
+  cargo \
+  && cargo install fd-find ripgrep \
+  && rm -rf /root/.cargo/registry /root/.cargo/git \
+  && apt-get remove -y rustc cargo \
+  && apt-get autoremove -y \
+  && rm -rf /var/lib/apt/lists/*
 
 # 全局安装 Pi Coding Agent
 RUN npm install -g @mariozechner/pi-coding-agent@latest
