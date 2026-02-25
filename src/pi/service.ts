@@ -32,14 +32,15 @@ export type Part =
       };
     };
 
+interface PendingRequest {
+  startTime: number;
+  resolve: (response: AssistantResponse) => void;
+  reject: (error: Error) => void;
+}
+
 interface ActiveSession {
   session: AgentSession;
-  unsubscribe: () => void;
-  pendingResolvers: Array<{
-    startTime: number;
-    resolve: (response: AssistantResponse) => void;
-    reject: (error: Error) => void;
-  }>;
+  pendingQueue: PendingRequest[];
 }
 
 export class PiService {
@@ -94,84 +95,95 @@ export class PiService {
     return session.sessionId;
   }
 
-  async sendPrompt(sessionId: string, text: string): Promise<AssistantResponse> {
-    const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
-
-    // 获取或创建活跃会话
-    let active = this.activeSessions.get(sessionId);
-
-    if (!active) {
-      // 创建新会话
-      console.log('[PiService] Creating new active session:', sessionId);
-      const { session } = await createAgentSession({
-        cwd: workspacePath,
-        sessionManager: SessionManager.open(sessionId),
-        authStorage: this.authStorage,
-        modelRegistry: this.modelRegistry,
-      });
-
-      active = {
-        session,
-        unsubscribe: () => {},
-        pendingResolvers: [],
-      };
-      this.activeSessions.set(sessionId, active);
+  private async getOrCreateSession(sessionId: string): Promise<ActiveSession> {
+    const existing = this.activeSessions.get(sessionId);
+    if (existing) {
+      return existing;
     }
 
-    const startTime = Date.now();
-    const pendingResolvers = active.pendingResolvers;
+    const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
+    console.log('[PiService] Creating new active session:', sessionId);
 
-    // 创建一个 Promise 来等待响应
-    const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
-      pendingResolvers.push({ startTime, resolve, reject });
+    const { session } = await createAgentSession({
+      cwd: workspacePath,
+      sessionManager: SessionManager.open(sessionId),
+      authStorage: this.authStorage,
+      modelRegistry: this.modelRegistry,
     });
 
-    // 设置事件监听（只设置一次）
-    if (!active.unsubscribe || active.unsubscribe === (() => {})) {
-      const unsubscribe = active.session.subscribe((event: AgentSessionEvent) => {
-        if (event.type === 'turn_end') {
-          // 获取下一个等待的 resolver
-          const resolver = pendingResolvers.shift();
-          if (!resolver) {
-            console.warn('[PiService] turn_end received but no pending resolver');
-            return;
-          }
+    const active: ActiveSession = {
+      session,
+      pendingQueue: [],
+    };
 
-          if (event.message.role === 'assistant') {
-            const assistantMessage = event.message as unknown as AssistantMessage;
-            const toolResults = event.toolResults as unknown as ToolResultMessage[];
+    // 先存入 map，再设置事件监听器
+    this.activeSessions.set(sessionId, active);
 
-            const parts = this.extractParts(assistantMessage, toolResults);
+    // 立即设置事件监听器，确保不会错过任何事件
+    session.subscribe((event: AgentSessionEvent) => {
+      this.handleSessionEvent(active, event);
+    });
 
-            resolver.resolve({
-              info: {
-                // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-                modelID: (assistantMessage as any).model,
-                tokens: {
-                  // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-                  input: (assistantMessage as any).usage.input,
-                  // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-                  output: (assistantMessage as any).usage.output,
-                },
-                time: {
-                  created: resolver.startTime,
-                  completed: Date.now(),
-                },
-              },
-              parts,
-            });
-          } else {
-            resolver.reject(new Error('Expected assistant message'));
-          }
-        }
-      });
+    return active;
+  }
 
-      active.unsubscribe = unsubscribe;
+  private handleSessionEvent(active: ActiveSession, event: AgentSessionEvent): void {
+    if (event.type !== 'turn_end') {
+      return;
     }
+
+    const resolver = active.pendingQueue.shift();
+    if (!resolver) {
+      console.warn('[PiService] turn_end received but no pending request');
+      return;
+    }
+
+    console.log('[PiService] Processing turn_end, queue length:', active.pendingQueue.length);
+
+    if (event.message.role === 'assistant') {
+      const assistantMessage = event.message as unknown as AssistantMessage;
+      const toolResults = event.toolResults as unknown as ToolResultMessage[];
+
+      const parts = this.extractParts(assistantMessage, toolResults);
+
+      resolver.resolve({
+        info: {
+          // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+          modelID: (assistantMessage as any).model,
+          tokens: {
+            // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+            input: (assistantMessage as any).usage.input,
+            // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+            output: (assistantMessage as any).usage.output,
+          },
+          time: {
+            created: resolver.startTime,
+            completed: Date.now(),
+          },
+        },
+        parts,
+      });
+    } else {
+      resolver.reject(new Error('Expected assistant message'));
+    }
+  }
+
+  async sendPrompt(sessionId: string, text: string): Promise<AssistantResponse> {
+    const active = await this.getOrCreateSession(sessionId);
+
+    const startTime = Date.now();
+
+    // 创建 Promise 来等待响应
+    const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
+      active.pendingQueue.push({ startTime, resolve, reject });
+    });
 
     // 根据是否正在 streaming 决定使用 prompt 还是 followUp
     if (active.session.isStreaming) {
-      console.log('[PiService] Session is streaming, using followUp');
+      console.log(
+        '[PiService] Session is streaming, using followUp, queue:',
+        active.pendingQueue.length,
+      );
       await active.session.followUp(text);
     } else {
       console.log('[PiService] Session is idle, using prompt');
