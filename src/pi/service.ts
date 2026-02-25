@@ -144,9 +144,9 @@ export class PiService {
 
     // 从 messages 中找到最后一个 assistant message
     const messages = event.messages as unknown as (AssistantMessage | ToolResultMessage)[];
-    const lastAssistantMessage = [...messages].reverse().find(
-      (m): m is AssistantMessage => (m as AssistantMessage).role === 'assistant',
-    );
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((m): m is AssistantMessage => (m as AssistantMessage).role === 'assistant');
 
     if (lastAssistantMessage) {
       // 收集所有的 tool results
