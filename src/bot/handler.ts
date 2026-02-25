@@ -144,10 +144,17 @@ export class BotHandler {
       : event.message.thread_id || event.message.message_id; // 群聊使用 thread_id
     console.log('[BotHandler] Thread ID:', threadId);
 
+    // 提取 @ 的用户昵称列表
+    const mentionNames = mentions?.map(m => m.name) || [];
+
     const basicChatInfo = {
       chatId: chat_id,
       chatType: event.message.chat_type,
       senderId: event.sender?.sender_id?.open_id,
+      messageId: event.message.message_id,
+      threadId: event.message.thread_id,
+      eventId: event.event_id,
+      mentions: mentionNames,
     };
 
     const detailedChatInfo = await this.getDetailedChatInfo(basicChatInfo);
@@ -190,7 +197,11 @@ export class BotHandler {
     await this.addMessageReaction(userMessageId, 'Typing');
 
     try {
-      const response = await this.piService.sendPrompt(sessionId, query);
+      const response = await this.piService.sendPrompt(sessionId, query, {
+        senderName: chatInfo.senderName,
+        messageId: userMessageId,
+        mentions: chatInfo.mentions,
+      });
 
       await this.sendResponseCard(chatInfo.chatId, response, userMessageId);
       console.log('[BotHandler] Response sent successfully');
@@ -221,6 +232,10 @@ export class BotHandler {
       chatType: chatInfo.chatType,
       senderId: chatInfo.senderId,
       senderName: chatInfo.senderName,
+      messageId: chatInfo.messageId,
+      threadId: chatInfo.threadId,
+      eventId: chatInfo.eventId,
+      mentions: chatInfo.mentions,
     };
 
     try {

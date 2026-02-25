@@ -67,24 +67,7 @@ export class PiService {
   }
 
   async createSession(chatInfo: ChatInfo): Promise<string> {
-    const isPrivateChat = chatInfo.chatType === 'p2p';
-    const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
     const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
-
-    let systemPrompt = `You are an AI assistant integrated with Feishu/Lark.\nYou are working in a collaborative environment. Be helpful, concise, and provide clear answers.\n\nCurrent Context:\n- Chat Type: ${chatTypeInfo}\n- Chat ID: ${chatInfo.chatId}\n- Working Directory: ${workspacePath}`;
-
-    if (chatInfo.chatName) {
-      systemPrompt += `\n- Chat Name: ${chatInfo.chatName}`;
-    }
-
-    if (isPrivateChat) {
-      if (chatInfo.senderId) {
-        systemPrompt += `\n- User ID: ${chatInfo.senderId}`;
-      }
-      if (chatInfo.senderName) {
-        systemPrompt += `\n- User Name: ${chatInfo.senderName}`;
-      }
-    }
 
     const { session } = await createAgentSession({
       cwd: workspacePath,
@@ -93,7 +76,41 @@ export class PiService {
       modelRegistry: this.modelRegistry,
     });
 
+    // 注入 Chat 上下文（只注入一次，利用 LLM cache）
+    await this.injectChatContext(session, chatInfo);
+
     return session.sessionId;
+  }
+
+  private async injectChatContext(session: AgentSession, chatInfo: ChatInfo): Promise<void> {
+    const isPrivateChat = chatInfo.chatType === 'p2p';
+    const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
+
+    const contextMessage = {
+      customType: 'feishu_chat_context',
+      content: `## Current Feishu Chat Context
+
+**Chat Information**
+- Chat Type: ${chatTypeInfo}
+- Chat ID: \`${chatInfo.chatId}\`
+${chatInfo.chatName ? `- Chat Name: \`${chatInfo.chatName}\`` : ''}
+
+**System Rules**
+- You are an AI assistant integrated with Feishu/Lark
+- Be helpful, concise, and provide clear answers
+- Respond in the same language as the user's message
+- Each user message will include sender info in the format: [From: 昵称]`,
+      display: 'hidden',
+      details: chatInfo,
+    };
+
+    // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+    await session.sendCustomMessage(contextMessage as any, {
+      triggerTurn: false,
+      deliverAs: 'nextTurn',
+    });
+
+    console.log('[PiService] Chat context injected for chat:', chatInfo.chatId);
   }
 
   private async getOrCreateSession(sessionId: string): Promise<ActiveSession> {
@@ -178,12 +195,22 @@ export class PiService {
     }
   }
 
-  async sendPrompt(sessionId: string, text: string): Promise<AssistantResponse> {
+  async sendPrompt(
+    sessionId: string,
+    text: string,
+    messageContext?: {
+      senderName?: string;
+      messageId?: string;
+      mentions?: string[];
+    },
+  ): Promise<AssistantResponse> {
     const active = await this.getOrCreateSession(sessionId);
 
     const startTime = Date.now();
 
-    // 创建 Promise 来等待响应
+    // 构建带前缀的消息
+    const enrichedText = this.buildEnrichedMessage(text, messageContext);
+
     const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
       active.pendingQueue.push({ startTime, resolve, reject });
     });
@@ -194,14 +221,40 @@ export class PiService {
         '[PiService] Session is streaming, using followUp, queue:',
         active.pendingQueue.length,
       );
-      await active.session.followUp(text);
+      await active.session.followUp(enrichedText);
     } else {
       console.log('[PiService] Session is idle, using prompt');
-      await active.session.prompt(text);
+      await active.session.prompt(enrichedText);
     }
 
-    // 等待响应
     return responsePromise;
+  }
+
+  private buildEnrichedMessage(
+    text: string,
+    context?: {
+      senderName?: string;
+      messageId?: string;
+      mentions?: string[];
+    },
+  ): string {
+    if (!context) return text;
+
+    const prefixParts: string[] = [];
+
+    // 发送人信息
+    if (context.senderName) {
+      prefixParts.push(`[From: ${context.senderName}]`);
+    }
+
+    // @信息
+    if (context.mentions && context.mentions.length > 0) {
+      prefixParts.push(`[Mentions: ${context.mentions.join(', ')}]`);
+    }
+
+    if (prefixParts.length === 0) return text;
+
+    return `${prefixParts.join(' ')}\n\n${text}`;
   }
 
   private extractParts(
