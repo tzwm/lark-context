@@ -197,16 +197,9 @@ export class BotHandler {
     await this.addMessageReaction(userMessageId, 'Typing');
 
     try {
-      const response = await this.piService.sendPrompt(
-        sessionId,
-        query,
-        {
-          senderName: chatInfo.senderName,
-          messageId: userMessageId,
-          mentions: chatInfo.mentions,
-        },
-        chatInfo,
-      );
+      // 构建带上下文的查询
+      const enrichedQuery = this.buildEnrichedQuery(query, chatInfo);
+      const response = await this.piService.sendPrompt(sessionId, enrichedQuery);
 
       await this.sendResponseCard(chatInfo.chatId, response, userMessageId);
       console.log('[BotHandler] Response sent successfully');
@@ -622,5 +615,30 @@ export class BotHandler {
     await this.sessionManager.updateSessionId(key, newSessionId);
     console.log('[BotHandler] New session created:', newSessionId);
     return newSessionId;
+  }
+
+  private buildEnrichedQuery(query: string, chatInfo: ChatInfo): string {
+    const prefixParts: string[] = [];
+
+    // Chat 上下文（只在私聊时添加，群聊已经有 chat name）
+    if (chatInfo.chatType === 'p2p') {
+      prefixParts.push(`[Chat: ${chatInfo.chatId}]`);
+    } else if (chatInfo.chatName) {
+      prefixParts.push(`[Chat: ${chatInfo.chatName}]`);
+    }
+
+    // 发送人信息
+    if (chatInfo.senderName) {
+      prefixParts.push(`[From: ${chatInfo.senderName}]`);
+    }
+
+    // @信息
+    if (chatInfo.mentions && chatInfo.mentions.length > 0) {
+      prefixParts.push(`[Mentions: ${chatInfo.mentions.join(', ')}]`);
+    }
+
+    if (prefixParts.length === 0) return query;
+
+    return `${prefixParts.join(' ')}\n\n${query}`;
   }
 }
