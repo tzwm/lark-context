@@ -138,8 +138,10 @@ export class BotHandler {
 
     console.log('[BotHandler] Full event sender:', JSON.stringify(event.sender, null, 2));
 
-    // 使用 thread_id 作为会话标识，实现同一 thread 内的消息沿用同一 Pi session
-    const threadId = event.message.thread_id || event.message.message_id;
+    // 私聊始终使用同一 session（符合直觉），群聊按 thread 区分
+    const threadId = isPrivateChat
+      ? `p2p-${chat_id}` // 私聊固定使用 chat_id 作为 thread 标识
+      : event.message.thread_id || event.message.message_id; // 群聊使用 thread_id
     console.log('[BotHandler] Thread ID:', threadId);
 
     const basicChatInfo = {
