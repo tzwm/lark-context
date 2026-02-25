@@ -72,9 +72,8 @@ RUN corepack enable pnpm && pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
 
-# Data mount directories
+# Data mount directory
 VOLUME /app/data
-VOLUME /root/.pi/agent
 
 EXPOSE 3000
 
