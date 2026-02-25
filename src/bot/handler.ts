@@ -353,10 +353,7 @@ export class BotHandler {
       } else if (part.type === 'tool') {
         const status =
           part.state?.status === 'completed' ? '✓' : part.state?.status === 'error' ? '✗' : '...';
-        const args = Object.entries(part.arguments || {})
-          .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-          .join(', ');
-        thinking += `[${status} ${part.tool}(${args})]\n`;
+        thinking += `[${status} ${part.tool}]\n`;
       }
       // 忽略 file 类型
     }
@@ -425,9 +422,16 @@ export class BotHandler {
       }
     }
 
+    // 限制 thinking 长度，避免超过飞书卡片限制
+    const MAX_THINKING_LENGTH = 1000;
+    const limitedThinking =
+      thinking.length > MAX_THINKING_LENGTH
+        ? `${thinking.substring(0, MAX_THINKING_LENGTH)}...`
+        : thinking;
+
     // 构建基础卡片
     const card = replaceVariables(template, {
-      thinking: thinking.trim(),
+      thinking: limitedThinking.trim(),
       body: body.trim(),
       info,
       model: response.info.modelID,
