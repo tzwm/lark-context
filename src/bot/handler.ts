@@ -351,7 +351,8 @@ export class BotHandler {
       } else if (part.type === 'reasoning' && part.text) {
         thinking += `${part.text}\n\n`;
       } else if (part.type === 'tool') {
-        const status = part.state?.status === 'completed' ? '✓' : part.state?.status === 'error' ? '✗' : '...';
+        const status =
+          part.state?.status === 'completed' ? '✓' : part.state?.status === 'error' ? '✗' : '...';
         const args = Object.entries(part.arguments || {})
           .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
           .join(', ');

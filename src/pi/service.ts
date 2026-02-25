@@ -129,33 +129,42 @@ export class PiService {
   }
 
   private handleSessionEvent(active: ActiveSession, event: AgentSessionEvent): void {
-    if (event.type !== 'turn_end') {
+    // 使用 agent_end 事件，等待所有 tool call 轮次完成
+    if (event.type !== 'agent_end') {
       return;
     }
 
     const resolver = active.pendingQueue.shift();
     if (!resolver) {
-      console.warn('[PiService] turn_end received but no pending request');
+      console.warn('[PiService] agent_end received but no pending request');
       return;
     }
 
-    console.log('[PiService] Processing turn_end, queue length:', active.pendingQueue.length);
+    console.log('[PiService] Processing agent_end, queue length:', active.pendingQueue.length);
 
-    if (event.message.role === 'assistant') {
-      const assistantMessage = event.message as unknown as AssistantMessage;
-      const toolResults = event.toolResults as unknown as ToolResultMessage[];
+    // 从 messages 中找到最后一个 assistant message
+    const messages = event.messages as unknown as (AssistantMessage | ToolResultMessage)[];
+    const lastAssistantMessage = [...messages].reverse().find(
+      (m): m is AssistantMessage => (m as AssistantMessage).role === 'assistant',
+    );
 
-      const parts = this.extractParts(assistantMessage, toolResults);
+    if (lastAssistantMessage) {
+      // 收集所有的 tool results
+      const toolResults = messages.filter(
+        m => (m as ToolResultMessage).role === 'toolResult',
+      ) as unknown as ToolResultMessage[];
+
+      const parts = this.extractParts(lastAssistantMessage, toolResults);
 
       resolver.resolve({
         info: {
           // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-          modelID: (assistantMessage as any).model,
+          modelID: (lastAssistantMessage as any).model,
           tokens: {
             // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-            input: (assistantMessage as any).usage.input,
+            input: (lastAssistantMessage as any).usage.input,
             // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-            output: (assistantMessage as any).usage.output,
+            output: (lastAssistantMessage as any).usage.output,
           },
           time: {
             created: resolver.startTime,
