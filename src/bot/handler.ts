@@ -422,17 +422,24 @@ export class BotHandler {
       }
     }
 
-    // 限制 thinking 长度，避免超过飞书卡片限制
-    const MAX_THINKING_LENGTH = 1000;
+    // 限制长度，避免超过飞书卡片限制
+    const MAX_THINKING_LENGTH = 500;
+    const MAX_BODY_LENGTH = 3000;
+
     const limitedThinking =
       thinking.length > MAX_THINKING_LENGTH
         ? `${thinking.substring(0, MAX_THINKING_LENGTH)}...`
         : thinking;
 
+    const limitedBody =
+      body.length > MAX_BODY_LENGTH
+        ? `${body.substring(0, MAX_BODY_LENGTH)}...`
+        : body;
+
     // 构建基础卡片
     const card = replaceVariables(template, {
       thinking: limitedThinking.trim(),
-      body: body.trim(),
+      body: limitedBody.trim(),
       info,
       model: response.info.modelID,
     }) as Record<string, unknown>;
