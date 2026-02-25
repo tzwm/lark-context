@@ -44,7 +44,7 @@ export class PiService {
     this.modelRegistry = new ModelRegistry(this.authStorage);
     this.settingsManager = SettingsManager.create();
     this.resourceLoader = new DefaultResourceLoader({
-      cwd: process.cwd(),
+      cwd: process.env.PI_WORKSPACE_PATH || process.cwd(),
       settingsManager: this.settingsManager,
     });
   }
