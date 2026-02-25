@@ -2,10 +2,8 @@ import type { AssistantMessage, ToolCall, ToolResultMessage } from '@mariozechne
 import {
   type AgentSessionEvent,
   AuthStorage,
-  DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
-  SettingsManager,
   createAgentSession,
 } from '@mariozechner/pi-coding-agent';
 import type { ChatInfo } from '../types/index.js';
@@ -36,23 +34,12 @@ export type Part =
 export class PiService {
   private authStorage: AuthStorage;
   private modelRegistry: ModelRegistry;
-  private settingsManager: SettingsManager;
-  private resourceLoader: DefaultResourceLoader;
   private piSessionsPath: string;
 
   constructor(dataPath: string) {
     this.authStorage = AuthStorage.create();
     this.modelRegistry = new ModelRegistry(this.authStorage);
-    this.settingsManager = SettingsManager.create();
     this.piSessionsPath = `${dataPath}/pi-sessions`;
-    this.resourceLoader = new DefaultResourceLoader({
-      cwd: process.env.PI_WORKSPACE_PATH || process.cwd(),
-      settingsManager: this.settingsManager,
-    });
-  }
-
-  async initialize(): Promise<void> {
-    await this.resourceLoader.reload();
   }
 
   async healthCheck(): Promise<boolean> {
@@ -90,7 +77,6 @@ export class PiService {
       sessionManager: SessionManager.create(this.piSessionsPath),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
-      resourceLoader: this.resourceLoader,
     });
 
     return session.sessionId;
@@ -103,7 +89,6 @@ export class PiService {
       sessionManager: SessionManager.open(sessionId),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
-      resourceLoader: this.resourceLoader,
     });
 
     const startTime = Date.now();
