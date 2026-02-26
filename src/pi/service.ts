@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { AssistantMessage, ToolCall, ToolResultMessage } from '@mariozechner/pi-ai';
 import {
   type AgentSession,
@@ -57,10 +58,10 @@ export class PiService {
     const agentDir = getAgentDir();
     console.log('[PiService] Using agentDir:', agentDir);
     console.log('[PiService] PI_CODING_AGENT_DIR env:', process.env.PI_CODING_AGENT_DIR);
-
+    
     this.authStorage = AuthStorage.create();
     this.modelRegistry = new ModelRegistry(this.authStorage);
-
+    
     // 读取 settings.json
     try {
       const settingsPath = `${agentDir}/settings.json`;
@@ -77,9 +78,33 @@ export class PiService {
     } catch (e) {
       console.log('[PiService] Could not read settings.json:', e);
     }
-
-    // sessions 存储在 DATA_PATH 下
+    
+    // sessions 存储在 DATA_PATH 下，确保目录存在
     this.piSessionsPath = `${dataPath}/pi-sessions`;
+    if (!fs.existsSync(this.piSessionsPath)) {
+      fs.mkdirSync(this.piSessionsPath, { recursive: true });
+      console.log('[PiService] Created pi-sessions directory:', this.piSessionsPath);
+    }
+  }
+
+  private findSessionFile(sessionId: string): string | null {
+    try {
+      if (!fs.existsSync(this.piSessionsPath)) {
+        return null;
+      }
+
+      const files = fs.readdirSync(this.piSessionsPath);
+      // 查找包含 sessionId 的文件（格式：timestamp_sessionId.jsonl）
+      const sessionFile = files.find(f => f.includes(sessionId) && f.endsWith('.jsonl'));
+
+      if (sessionFile) {
+        return path.join(this.piSessionsPath, sessionFile);
+      }
+      return null;
+    } catch (e) {
+      console.log('[PiService] Error finding session file:', e);
+      return null;
+    }
   }
 
   async healthCheck(): Promise<boolean> {
@@ -135,9 +160,21 @@ export class PiService {
     console.log('[PiService] Creating new active session:', sessionId);
     console.log('[PiService] Using piSessionsPath:', this.piSessionsPath);
 
+    // 在 piSessionsPath 目录下查找 sessionId 对应的文件
+    const sessionFile = this.findSessionFile(sessionId);
+
+    let sessionManager: SessionManager;
+    if (sessionFile) {
+      console.log('[PiService] Found existing session file:', sessionFile);
+      sessionManager = SessionManager.open(sessionFile, this.piSessionsPath);
+    } else {
+      console.log('[PiService] Creating new session in:', this.piSessionsPath);
+      sessionManager = SessionManager.create(workspacePath, this.piSessionsPath);
+    }
+
     const { session } = await createAgentSession({
       cwd: workspacePath,
-      sessionManager: SessionManager.open(sessionId, this.piSessionsPath),
+      sessionManager,
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
     });
