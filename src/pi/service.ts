@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import type { AssistantMessage, ToolCall, ToolResultMessage } from '@mariozechner/pi-ai';
 import {
   type AgentSession,
@@ -6,6 +7,7 @@ import {
   ModelRegistry,
   SessionManager,
   createAgentSession,
+  getAgentDir,
 } from '@mariozechner/pi-coding-agent';
 import type { ChatInfo } from '../types/index.js';
 
@@ -52,8 +54,29 @@ export class PiService {
 
   constructor(dataPath: string) {
     // 使用全局 auth.json 和 models.json（~/.pi/agent/）
+    const agentDir = getAgentDir();
+    console.log('[PiService] Using agentDir:', agentDir);
+    console.log('[PiService] PI_CODING_AGENT_DIR env:', process.env.PI_CODING_AGENT_DIR);
+
     this.authStorage = AuthStorage.create();
     this.modelRegistry = new ModelRegistry(this.authStorage);
+
+    // 读取 settings.json
+    try {
+      const settingsPath = `${agentDir}/settings.json`;
+      if (fs.existsSync(settingsPath)) {
+        const settingsContent = fs.readFileSync(settingsPath, 'utf-8');
+        const settings = JSON.parse(settingsContent);
+        console.log('[PiService] settings.json:', {
+          defaultProvider: settings.defaultProvider,
+          defaultModel: settings.defaultModel,
+        });
+      } else {
+        console.log('[PiService] settings.json not found at:', settingsPath);
+      }
+    } catch (e) {
+      console.log('[PiService] Could not read settings.json:', e);
+    }
 
     // sessions 存储在 DATA_PATH 下
     this.piSessionsPath = `${dataPath}/pi-sessions`;
@@ -62,6 +85,20 @@ export class PiService {
   async healthCheck(): Promise<boolean> {
     try {
       const available = await this.modelRegistry.getAvailable();
+      console.log(
+        '[PiService] Available models:',
+        available.map(m => ({ id: m.id, provider: m.provider })),
+      );
+
+      // 检查 auth.json
+      try {
+        // biome-ignore lint/suspicious/noExplicitAny: AuthStorage 内部结构
+        const authData = (this.authStorage as any).data;
+        console.log('[PiService] Auth data:', JSON.stringify(authData, null, 2));
+      } catch (e) {
+        console.log('[PiService] Could not read auth data:', e);
+      }
+
       return available.length > 0;
     } catch (error) {
       console.error('PiService health check failed:', error);
@@ -70,27 +107,16 @@ export class PiService {
   }
 
   async createSession(chatInfo: ChatInfo): Promise<string> {
-    const isPrivateChat = chatInfo.chatType === 'p2p';
-    const chatTypeInfo = isPrivateChat ? '私聊' : '群聊';
     const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
+    const agentDir = getAgentDir();
 
-    let systemPrompt = `You are an AI assistant integrated with Feishu/Lark.\nYou are working in a collaborative environment. Be helpful, concise, and provide clear answers.\n\nCurrent Context:\n- Chat Type: ${chatTypeInfo}\n- Chat ID: ${chatInfo.chatId}\n- Working Directory: ${workspacePath}`;
-
-    if (chatInfo.chatName) {
-      systemPrompt += `\n- Chat Name: ${chatInfo.chatName}`;
-    }
-
-    if (isPrivateChat) {
-      if (chatInfo.senderId) {
-        systemPrompt += `\n- User ID: ${chatInfo.senderId}`;
-      }
-      if (chatInfo.senderName) {
-        systemPrompt += `\n- User Name: ${chatInfo.senderName}`;
-      }
-    }
+    console.log('[PiService] createSession called');
+    console.log('[PiService] agentDir for createAgentSession:', agentDir);
+    console.log('[PiService] PI_CODING_AGENT_DIR:', process.env.PI_CODING_AGENT_DIR);
 
     const { session } = await createAgentSession({
       cwd: workspacePath,
+      agentDir, // 显式传递 agentDir，确保使用全局配置
       sessionManager: SessionManager.create(this.piSessionsPath),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
@@ -107,10 +133,11 @@ export class PiService {
 
     const workspacePath = process.env.PI_WORKSPACE_PATH || process.cwd();
     console.log('[PiService] Creating new active session:', sessionId);
+    console.log('[PiService] Using piSessionsPath:', this.piSessionsPath);
 
     const { session } = await createAgentSession({
       cwd: workspacePath,
-      sessionManager: SessionManager.open(sessionId),
+      sessionManager: SessionManager.open(sessionId, this.piSessionsPath),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
     });
@@ -137,6 +164,8 @@ export class PiService {
       return;
     }
 
+    console.log('[PiService] handleSessionEvent: agent_end received');
+
     const resolver = active.pendingQueue.shift();
     if (!resolver) {
       console.warn('[PiService] agent_end received but no pending request');
@@ -147,27 +176,44 @@ export class PiService {
 
     // 从 messages 中找到最后一个 assistant message
     const messages = event.messages as unknown as (AssistantMessage | ToolResultMessage)[];
+    console.log('[PiService] agent_end messages count:', messages.length);
+
     const lastAssistantMessage = [...messages]
       .reverse()
       .find((m): m is AssistantMessage => (m as AssistantMessage).role === 'assistant');
 
+    console.log('[PiService] Found assistant message:', !!lastAssistantMessage);
+
     if (lastAssistantMessage) {
+      // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
+      const assistantMsg = lastAssistantMessage as any;
+      console.log('[PiService] Assistant message details:', {
+        model: assistantMsg.model,
+        provider: assistantMsg.provider,
+        stopReason: assistantMsg.stopReason,
+        errorMessage: assistantMsg.errorMessage,
+        contentLength: assistantMsg.content?.length,
+        usage: assistantMsg.usage,
+      });
+
       // 收集所有的 tool results
       const toolResults = messages.filter(
         m => (m as ToolResultMessage).role === 'toolResult',
       ) as unknown as ToolResultMessage[];
 
       const parts = this.extractParts(lastAssistantMessage, toolResults);
+      console.log('[PiService] Extracted parts count:', parts.length);
+      console.log('[PiService] Parts:', JSON.stringify(parts, null, 2));
 
       resolver.resolve({
         info: {
           // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-          modelID: (lastAssistantMessage as any).model,
+          modelID: assistantMsg.model,
           tokens: {
             // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-            input: (lastAssistantMessage as any).usage.input,
+            input: assistantMsg.usage.input,
             // biome-ignore lint/suspicious/noExplicitAny: pi-coding-agent 库类型定义不完整
-            output: (lastAssistantMessage as any).usage.output,
+            output: assistantMsg.usage.output,
           },
           time: {
             created: resolver.startTime,
@@ -177,6 +223,7 @@ export class PiService {
         parts,
       });
     } else {
+      console.error('[PiService] No assistant message found in agent_end event');
       resolver.reject(new Error('Expected assistant message'));
     }
   }
@@ -185,6 +232,9 @@ export class PiService {
     const active = await this.getOrCreateSession(sessionId);
 
     const startTime = Date.now();
+
+    console.log('[PiService] sendPrompt called, text length:', text.length);
+    console.log('[PiService] Message preview:', text.substring(0, 200));
 
     // 将添加 resolver 和调用 prompt 都放在 Promise executor 中同步执行
     const responsePromise = new Promise<AssistantResponse>((resolve, reject) => {
@@ -201,7 +251,11 @@ export class PiService {
         active.session.followUp(text).catch(reject);
       } else {
         console.log('[PiService] Session is idle, using prompt');
-        active.session.prompt(text).catch(reject);
+        console.log('[PiService] Calling session.prompt...');
+        active.session.prompt(text).catch(err => {
+          console.error('[PiService] session.prompt error:', err);
+          reject(err);
+        });
       }
     });
 
