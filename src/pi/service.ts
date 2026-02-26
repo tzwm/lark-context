@@ -1,5 +1,3 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { AssistantMessage, ToolCall, ToolResultMessage } from '@mariozechner/pi-ai';
 import {
   type AgentSession,
@@ -8,7 +6,6 @@ import {
   ModelRegistry,
   SessionManager,
   createAgentSession,
-  getAgentDir,
 } from '@mariozechner/pi-coding-agent';
 import type { ChatInfo } from '../types/index.js';
 
@@ -54,29 +51,12 @@ export class PiService {
   private activeSessions = new Map<string, ActiveSession>();
 
   constructor(dataPath: string) {
+    // 使用全局 auth.json 和 models.json（~/.pi/agent/）
     this.authStorage = AuthStorage.create();
-
-    // 确保 models.json 存在，如果不存在则从全局目录复制
-    this.ensureModelsJson(dataPath);
-
     this.modelRegistry = new ModelRegistry(this.authStorage);
+
+    // sessions 存储在 DATA_PATH 下
     this.piSessionsPath = `${dataPath}/pi-sessions`;
-  }
-
-  private ensureModelsJson(dataPath: string): void {
-    const agentDir = process.env.PI_CODING_AGENT_DIR || getAgentDir();
-    const modelsJsonPath = path.join(agentDir, 'models.json');
-
-    if (!fs.existsSync(modelsJsonPath)) {
-      // 尝试从全局目录复制
-      const globalModelsJson = path.join(getAgentDir(), 'models.json');
-      if (fs.existsSync(globalModelsJson)) {
-        fs.copyFileSync(globalModelsJson, modelsJsonPath);
-        console.log('[PiService] Copied models.json from global config to:', modelsJsonPath);
-      } else {
-        console.warn('[PiService] No models.json found in global or local config');
-      }
-    }
   }
 
   async healthCheck(): Promise<boolean> {

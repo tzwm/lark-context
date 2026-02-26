@@ -13,9 +13,6 @@ for (const envVar of requiredEnvVars) {
 
 const DATA_PATH = process.env.DATA_PATH as string;
 
-// 设置 pi-coding-agent 的会话存储路径
-process.env.PI_CODING_AGENT_DIR = `${DATA_PATH}/.pi/agent`;
-
 console.log('[Init] Initializing Pi service...');
 const piService = new PiService(DATA_PATH);
 
