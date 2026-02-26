@@ -58,10 +58,10 @@ export class PiService {
     const agentDir = getAgentDir();
     console.log('[PiService] Using agentDir:', agentDir);
     console.log('[PiService] PI_CODING_AGENT_DIR env:', process.env.PI_CODING_AGENT_DIR);
-    
+
     this.authStorage = AuthStorage.create();
     this.modelRegistry = new ModelRegistry(this.authStorage);
-    
+
     // 读取 settings.json
     try {
       const settingsPath = `${agentDir}/settings.json`;
@@ -78,7 +78,7 @@ export class PiService {
     } catch (e) {
       console.log('[PiService] Could not read settings.json:', e);
     }
-    
+
     // sessions 存储在 DATA_PATH 下，确保目录存在
     this.piSessionsPath = `${dataPath}/pi-sessions`;
     if (!fs.existsSync(this.piSessionsPath)) {
