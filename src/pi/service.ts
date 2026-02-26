@@ -117,7 +117,7 @@ export class PiService {
     const { session } = await createAgentSession({
       cwd: workspacePath,
       agentDir, // 显式传递 agentDir，确保使用全局配置
-      sessionManager: SessionManager.create(this.piSessionsPath),
+      sessionManager: SessionManager.create(workspacePath, this.piSessionsPath),
       authStorage: this.authStorage,
       modelRegistry: this.modelRegistry,
     });

@@ -436,74 +436,23 @@ export class BotHandler {
       }
     }
 
-    // 分块发送，避免超过飞书卡片限制
-    const MAX_THINKING_LENGTH = 500;
-    const MAX_BODY_LENGTH = 3000;
-
-    // 分块发送 thinking
-    if (thinking.trim()) {
-      const thinkingBlocks = this.splitText(thinking.trim(), MAX_THINKING_LENGTH);
-      for (let i = 0; i < thinkingBlocks.length; i++) {
-        const isLastThinkingBlock = i === thinkingBlocks.length - 1;
-        const thinkingCard = this.createThinkingCard(
-          thinkingBlocks[i],
-          i === 0 ? response.info.modelID : '',
-          i === 0 && response.info.tokens ? info : '',
-          images,
-          isLastThinkingBlock && !body.trim(),
-        );
-        await this.sendCard(chatId, thinkingCard, replyMessageId);
-      }
-    }
-
-    // 分块发送 body
-    if (body.trim()) {
-      const bodyBlocks = this.splitText(body.trim(), MAX_BODY_LENGTH);
-      for (let i = 0; i < bodyBlocks.length; i++) {
-        const isLastBodyBlock = i === bodyBlocks.length - 1;
-        const bodyCard = this.createBodyCard(
-          bodyBlocks[i],
-          i === 0 && !thinking.trim() ? response.info.modelID : '',
-          i === 0 && !thinking.trim() && response.info.tokens ? info : '',
-          isLastBodyBlock,
-        );
-        await this.sendCard(chatId, bodyCard, replyMessageId);
-      }
-    }
+    // 构建完整卡片（thinking + body 在同一个卡片中）
+    const card = this.createCompleteCard(
+      thinking.trim(),
+      body.trim(),
+      response.info.modelID,
+      info,
+      images,
+    );
+    await this.sendCard(chatId, card, replyMessageId);
   }
 
-  private splitText(text: string, maxLength: number): string[] {
-    const blocks: string[] = [];
-    let current = text;
-
-    while (current.length > 0) {
-      if (current.length <= maxLength) {
-        blocks.push(current);
-        break;
-      }
-
-      // 在换行处截断
-      let splitIndex = current.lastIndexOf('\n\n', maxLength);
-      if (splitIndex === -1) {
-        splitIndex = current.lastIndexOf('\n', maxLength);
-      }
-      if (splitIndex === -1 || splitIndex < maxLength / 2) {
-        splitIndex = maxLength;
-      }
-
-      blocks.push(current.substring(0, splitIndex));
-      current = current.substring(splitIndex).trimStart();
-    }
-
-    return blocks;
-  }
-
-  private createThinkingCard(
+  private createCompleteCard(
     thinking: string,
+    body: string,
     model: string,
     info: string,
     images: string[],
-    isLast: boolean,
   ): Record<string, unknown> {
     const template = JSON.parse(JSON.stringify(messageTemplate)) as typeof messageTemplate;
     const templateElements = template.body.elements as Array<Record<string, unknown>>;
@@ -514,14 +463,14 @@ export class BotHandler {
       (thinkingElement.text as Record<string, unknown>).content = thinking;
     }
 
-    // 清空 body markdown
+    // 设置 body 内容
     const bodyElement = templateElements[2] as Record<string, unknown> | undefined;
     if (bodyElement?.tag === 'markdown') {
-      bodyElement.content = '';
+      bodyElement.content = body;
     }
 
-    // 如果有图片且是最后一块，插入图片组件
-    if (images.length > 0 && isLast) {
+    // 如果有图片，插入 img_combination 组件
+    if (images.length > 0) {
       const bodyIndex = 2;
       if (templateElements[bodyIndex]?.tag === 'markdown') {
         const imgCombination = {
@@ -538,45 +487,6 @@ export class BotHandler {
     }
 
     // 设置 footer 信息
-    this.setCardFooter(templateElements, model, info, isLast);
-
-    return template;
-  }
-
-  private createBodyCard(
-    body: string,
-    model: string,
-    info: string,
-    isLast: boolean,
-  ): Record<string, unknown> {
-    const template = JSON.parse(JSON.stringify(messageTemplate)) as typeof messageTemplate;
-    const templateElements = template.body.elements as Array<Record<string, unknown>>;
-
-    // 清空 thinking
-    const thinkingElement = templateElements[0] as Record<string, unknown> | undefined;
-    if (thinkingElement?.tag === 'div') {
-      (thinkingElement.text as Record<string, unknown>).content = '';
-    }
-
-    // 设置 body 内容
-    const bodyElement = templateElements[2] as Record<string, unknown> | undefined;
-    if (bodyElement?.tag === 'markdown') {
-      bodyElement.content = body;
-    }
-
-    // 设置 footer 信息
-    this.setCardFooter(templateElements, model, info, isLast);
-
-    return template;
-  }
-
-  private setCardFooter(
-    templateElements: Array<Record<string, unknown>>,
-    model: string,
-    info: string,
-    show: boolean,
-  ): void {
-    // 找到 column_set (footer)
     const footerIndex = templateElements.findIndex(e => e?.tag === 'column_set');
     if (footerIndex !== -1) {
       const footer = templateElements[footerIndex] as Record<string, unknown> | undefined;
@@ -585,27 +495,21 @@ export class BotHandler {
         const leftColumn = columns[0] as Record<string, unknown> | undefined;
         const rightColumn = columns[1] as Record<string, unknown> | undefined;
 
-        if (show && leftColumn?.elements) {
+        if (leftColumn?.elements) {
           const leftElements = leftColumn.elements as Array<Record<string, unknown>>;
           const leftText = leftElements[0]?.text as Record<string, unknown> | undefined;
           if (leftText) leftText.content = model;
-        } else if (leftColumn?.elements) {
-          const leftElements = leftColumn.elements as Array<Record<string, unknown>>;
-          const leftText = leftElements[0]?.text as Record<string, unknown> | undefined;
-          if (leftText) leftText.content = '';
         }
 
-        if (show && rightColumn?.elements) {
+        if (rightColumn?.elements) {
           const rightElements = rightColumn.elements as Array<Record<string, unknown>>;
           const rightText = rightElements[0]?.text as Record<string, unknown> | undefined;
           if (rightText) rightText.content = info;
-        } else if (rightColumn?.elements) {
-          const rightElements = rightColumn.elements as Array<Record<string, unknown>>;
-          const rightText = rightElements[0]?.text as Record<string, unknown> | undefined;
-          if (rightText) rightText.content = '';
         }
       }
     }
+
+    return template;
   }
 
   async createNewSession(chatInfo: ChatInfo, threadId?: string): Promise<string> {
